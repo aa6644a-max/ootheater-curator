@@ -12,10 +12,13 @@
 const KOFIC_BASE = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieList.json";
 const KMDB_BASE  = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp";
 
+/* ── KMDb !HS !HE 하이라이트 태그 제거 ────────── */
+const clean = s => (s || "").replace(/!HS\s?|!HE\s?/g, "").trim();
+
 /* ── KMDb 결과 → 공통 레코드 변환 ─────────────── */
 function parseKMDb(item, koficMatch = null) {
   const directorList = item.directors?.director || [];
-  const director = directorList.map(d => d.directorNm).filter(Boolean).join(", ");
+  const director = directorList.map(d => clean(d.directorNm)).filter(Boolean).join(", ");
 
   const posters   = item.posters || "";
   const plots     = item.plots?.plot || [];
@@ -24,19 +27,21 @@ function parseKMDb(item, koficMatch = null) {
   const actorList = item.actors?.actor || [];
   const rt        = parseInt(item.runtime);
 
+  const plotText = plots.find(p => p.plotLang === "한국어")?.plotText || plots[0]?.plotText || "";
+
   return {
     id:         koficMatch?.movieCd || item.DOCID || item.movieId || "",
-    title:      (item.title || "").replace(/!HS|!HE/g, "").trim(),
+    title:      clean(item.title),
     director:   director,
     year:       item.prodYear || "",
     status:     koficMatch?.prdtStatNm || "",
     type:       koficMatch?.typeNm    || "",
-    genre:      (item.genre || koficMatch?.repGenreNm || "").split(",")[0].trim(),
+    genre:      clean((item.genre || koficMatch?.repGenreNm || "").split(",")[0]),
     runtime:    isNaN(rt) ? null : rt,
     poster_url: posters ? posters.split("|")[0] : null,
-    plot:       plots.find(p => p.plotLang === "한국어")?.plotText || plots[0]?.plotText || "",
-    keywords:   kwRaw ? kwRaw.split("|").map(k => k.trim()).filter(Boolean) : [],
-    actors:     actorList.slice(0, 8).map(a => a.actorNm).filter(Boolean),
+    plot:       clean(plotText),
+    keywords:   kwRaw ? kwRaw.split("|").map(k => clean(k)).filter(Boolean) : [],
+    actors:     actorList.slice(0, 8).map(a => clean(a.actorNm)).filter(Boolean),
     stills:     stllsRaw ? stllsRaw.split("|").slice(0, 8).filter(Boolean) : [],
   };
 }
