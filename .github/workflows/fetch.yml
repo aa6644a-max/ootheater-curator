@@ -21,7 +21,7 @@ jobs:
           cache: 'pip'
 
       - name: 의존성 설치
-        run: pip install -r requirements.txt
+        run: pip install -r pipeline/requirements.txt
 
       - name: 독립영화 데이터 수집 및 Supabase 적재
         env:
