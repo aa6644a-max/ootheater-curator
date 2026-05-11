@@ -886,7 +886,7 @@ async function doSearch(q) {
 
   const param = searchType === "director"
     ? `director=${encodeURIComponent(q)}`
-    : `q=${encodeURIComponent(q)}`;
+    : `q=${encodeURIComponent(q)}&searchBy=title`;
 
   try {
     const { results } = await apiGet(`/api/movies?${param}`);

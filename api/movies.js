@@ -65,8 +65,8 @@ function parseKOFIC(m) {
   };
 }
 
-/* ── KMDb 풀텍스트 검색 ──────────────────────── */
-async function kmdbQuery(q, director, kmdbKey, listCount = 20) {
+/* ── KMDb 검색 ───────────────────────────────── */
+async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query") {
   const params = new URLSearchParams({
     ServiceKey:  kmdbKey,
     startCount:  "0",
@@ -74,9 +74,10 @@ async function kmdbQuery(q, director, kmdbKey, listCount = 20) {
     detail:      "Y",
     collection:  "kmdb_new2",
   });
-  // query는 전체 필드 풀텍스트. title은 제목 한정.
-  // 둘 다 보내면 AND 조건 → 제목 검색 시 더 정확.
-  if (q)        params.set("query", q);
+  if (q) {
+    // title: 제목 한정 검색 (정확), query: 전체 필드 풀텍스트 (광범위)
+    params.set(searchBy === "title" ? "title" : "query", q);
+  }
   if (director) params.set("director", director);
 
   try {
@@ -125,7 +126,8 @@ module.exports = async function handler(req, res) {
 
   const {
     q = "", director = "",
-    page = "1", yearFrom = "", yearTo = "", genre = ""
+    page = "1", yearFrom = "", yearTo = "", genre = "",
+    searchBy = "query",   // "title" | "query"
   } = req.query;
 
   const koficKey = process.env.KOFIC_API_KEY || "";
@@ -135,7 +137,7 @@ module.exports = async function handler(req, res) {
   if (q || director) {
     // KMDb 풀텍스트 검색과 KOFIC 검색을 병렬 실행
     const [kmdbItems, koficList] = await Promise.all([
-      kmdbQuery(q, director, kmdbKey, 20),
+      kmdbQuery(q, director, kmdbKey, 20, searchBy),
       koficSearch(q, director, koficKey),
     ]);
 
