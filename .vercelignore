@@ -1,0 +1,6 @@
+pipeline/
+supabase/
+tests/
+pytest.ini
+.github/
+CLAUDE.md

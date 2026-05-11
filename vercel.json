@@ -1,12 +1,5 @@
 {
-  "framework": null,
-  "outputDirectory": ".",
   "functions": {
-    "api/movies.js": {
-      "runtime": "nodejs22.x"
-    }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" }
-  ]
+    "api/movies.js": {}
+  }
 }
