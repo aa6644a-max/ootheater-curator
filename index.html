@@ -399,18 +399,25 @@ body {
 }
 #catScreen .card:hover .card-rm { display: flex; }
 
-.card-body { padding: 9px 10px; }
+/* 제목·감독 오버레이 — 포스터 하단에 그라디언트 위에 표시 */
+.card-body {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 28px 10px 9px;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+}
 .card-title {
   font-size: 0.78rem;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
+  color: #fff;
 }
 .card-meta {
   font-size: 0.64rem;
-  color: var(--muted);
+  color: rgba(255,255,255,0.65);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1065,10 +1072,12 @@ function cardHTML(m, inCat, rowId = "") {
   const rm = inCat ? `<button class="card-rm" data-rowid="${rowId}">✕</button>` : "";
   return `
 <div class="card" data-id="${m.id}">
-  <div class="card-poster">${img}${rm}</div>
-  <div class="card-body">
-    <div class="card-title">${m.title || "제목 미상"}</div>
-    <div class="card-meta">${m.director || "—"} · ${m.year || "—"}</div>
+  <div class="card-poster">
+    ${img}${rm}
+    <div class="card-body">
+      <div class="card-title">${m.title || "제목 미상"}</div>
+      <div class="card-meta">${m.director || "—"} · ${m.year || "—"}</div>
+    </div>
   </div>
 </div>`;
 }
