@@ -197,6 +197,32 @@ body {
 }
 .search-wrap button:hover { opacity: 0.85; }
 
+.search-type {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.search-type button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 0 12px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all var(--ease);
+  white-space: nowrap;
+  height: 100%;
+}
+.search-type button.active {
+  background: var(--surface2);
+  color: var(--accent);
+}
+.search-type button:hover:not(.active) { color: var(--text); }
+
 /* ── 결과 화면 ── */
 #resultsScreen {
   display: none;
@@ -652,9 +678,15 @@ body {
   <div id="homeScreen">
     <div class="home-title">오오극장 큐레이터</div>
     <div class="home-sub">영화를 검색하고 기획전 카테고리에 추가하세요</div>
-    <div class="search-wrap">
-      <input id="homeInput" type="text" placeholder="영화 제목 또는 감독 이름…" autocomplete="off" />
-      <button id="homeBtn">검색</button>
+    <div style="display:flex;gap:8px;width:100%;max-width:580px;align-items:stretch">
+      <div class="search-type" id="homeSearchType">
+        <button class="active" data-type="title">제목</button>
+        <button data-type="director">감독</button>
+      </div>
+      <div class="search-wrap" style="flex:1;max-width:none">
+        <input id="homeInput" type="text" placeholder="영화 제목으로 검색…" autocomplete="off" />
+        <button id="homeBtn">검색</button>
+      </div>
     </div>
   </div>
 
@@ -662,6 +694,10 @@ body {
   <div id="resultsScreen">
     <div class="results-bar">
       <button class="btn-back" id="backBtn">← 홈</button>
+      <div class="search-type" id="topSearchType">
+        <button class="active" data-type="title">제목</button>
+        <button data-type="director">감독</button>
+      </div>
       <div class="results-search">
         <input id="topInput" type="text" placeholder="다시 검색…" autocomplete="off" />
         <button id="topBtn">검색</button>
@@ -733,6 +769,7 @@ body {
 let categories   = [];
 let activeCatId  = null;
 let currentMovie = null;
+let searchType   = "title"; // "title" | "director"
 
 /* ── 유틸 ──────────────────────────────────── */
 let toastTimer;
@@ -812,6 +849,29 @@ function updateCatSel() {
     categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
 }
 
+/* ── 검색 타입 토글 ─────────────────────────── */
+function initSearchTypeToggle(groupId, inputId) {
+  const group = document.getElementById(groupId);
+  const input = document.getElementById(inputId);
+  group.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      group.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      searchType = btn.dataset.type;
+      // 양쪽 토글 동기화
+      ["homeSearchType", "topSearchType"].forEach(id => {
+        document.getElementById(id)?.querySelectorAll("button").forEach(b => {
+          b.classList.toggle("active", b.dataset.type === searchType);
+        });
+      });
+      // placeholder 업데이트
+      const ph = searchType === "director" ? "감독 이름으로 검색…" : "영화 제목으로 검색…";
+      document.getElementById("homeInput").placeholder = ph;
+      document.getElementById("topInput").placeholder  = ph;
+    });
+  });
+}
+
 /* ── 영화 검색 ─────────────────────────────── */
 async function doSearch(q) {
   if (!q.trim()) return;
@@ -824,8 +884,12 @@ async function doSearch(q) {
   const grid = document.getElementById("resGrid");
   grid.innerHTML = `<div class="empty"><div class="spinner"></div>검색 중…</div>`;
 
+  const param = searchType === "director"
+    ? `director=${encodeURIComponent(q)}`
+    : `q=${encodeURIComponent(q)}`;
+
   try {
-    const { results } = await apiGet(`/api/movies?q=${encodeURIComponent(q)}`);
+    const { results } = await apiGet(`/api/movies?${param}`);
     document.getElementById("resStat").textContent = `${results.length}편`;
     if (!results.length) {
       grid.innerHTML = `<div class="empty">검색 결과가 없습니다.</div>`;
@@ -1037,6 +1101,8 @@ function bindSearch(inputId, btnId) {
 }
 bindSearch("homeInput", "homeBtn");
 bindSearch("topInput",  "topBtn");
+initSearchTypeToggle("homeSearchType", "homeInput");
+initSearchTypeToggle("topSearchType",  "topInput");
 
 /* ── 뒤로가기 ──────────────────────────────── */
 document.getElementById("backBtn").addEventListener("click", () => {
