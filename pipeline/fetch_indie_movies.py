@@ -55,6 +55,7 @@ def fetch_kofic_movies(page_size: int = 100) -> list[dict]:
             "itemPerPage":   page_size,
             "prdtStartYear": PROD_START_YEAR,
             "prdtEndYear":   PROD_END_YEAR,
+            "movieTypeCd":   "204104",   # 독립영화 유형 코드
         }
         try:
             res = requests.get(KOFIC_BASE, params=params, timeout=10)
@@ -71,7 +72,7 @@ def fetch_kofic_movies(page_size: int = 100) -> list[dict]:
         movies.extend(korean)
         log.info("KOFIC page %d — 한국 %d건 / 페이지 %d건 / 전체 %d", cur_page, len(korean), len(items), total)
 
-        if len(movies) >= total or not items:
+        if cur_page * page_size >= total or not items:
             break
         cur_page += 1
         time.sleep(0.3)   # API 요청 부하 방지
@@ -114,7 +115,6 @@ def fetch_kmdb(title: str, director: str, kofic_year: str) -> dict | None:
         "listCount":  5,
         "detail":     "Y",
         "collection": "kmdb_new2",
-        "ratedYn":    "Y",
     }
     try:
         res = requests.get(KMDB_BASE, params=params, timeout=10)
