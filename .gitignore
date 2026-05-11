@@ -1,0 +1,29 @@
+# 환경변수 (절대 커밋 금지)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Claude Code 로컬 설정
+.claude/
+
+# 테스트 패키지 (로컬 설치용)
+.pytest_packages/
+
+# 로그
+*.log
+pipeline_run.log
+
+# 에디터
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

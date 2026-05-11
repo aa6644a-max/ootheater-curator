@@ -1,0 +1,32 @@
+name: 독립영화 데이터 수집
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # 매주 월요일 11:00 KST (UTC 02:00)
+  workflow_dispatch:       # GitHub Actions UI에서 수동 실행 가능
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 의존성 설치
+        run: pip install -r requirements.txt
+
+      - name: 독립영화 데이터 수집 및 Supabase 적재
+        env:
+          KOFIC_API_KEY: ${{ secrets.KOFIC_API_KEY }}
+          KMDB_API_KEY:  ${{ secrets.KMDB_API_KEY }}
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+        run: python fetch_indie_movies.py
