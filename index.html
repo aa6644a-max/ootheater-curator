@@ -777,7 +777,6 @@ function showError() {
 
 /* ── 클라이언트 필터링 ── */
 function applyFilters(movies) {
-  const q = searchQuery.trim().toLowerCase();
   return movies.filter(m => {
     // 퀵 필터
     if (activeFilter === "jeonju") {
@@ -800,11 +799,6 @@ function applyFilters(movies) {
       if (!(m.status || "").includes(filterStatus)) return false;
     }
 
-    // 텍스트 검색
-    if (q) {
-      const hay = [m.title, m.director, m.plot, ...(m.keywords||[])].join(" ").toLowerCase();
-      if (!hay.includes(q)) return false;
-    }
     return true;
   });
 }
@@ -929,6 +923,10 @@ document.querySelectorAll(".qf").forEach(btn => {
 /* ── 검색 (엔터 or 버튼) ── */
 function triggerSearch() {
   searchQuery = document.getElementById("searchInput").value;
+  // 검색 시 퀵 필터 초기화 (필터가 검색 결과를 가리지 않도록)
+  activeFilter = "all";
+  document.querySelectorAll(".qf").forEach(b => b.classList.remove("active"));
+  document.querySelector('.qf[data-filter="all"]').classList.add("active");
   loadMovies(true);
 }
 
