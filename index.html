@@ -294,7 +294,7 @@ body {
   overflow-y: auto;
   padding: 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   align-content: start;
   align-items: start;
@@ -751,6 +751,7 @@ body {
       <div class="cat-bar-count" id="catBarCount"></div>
     </div>
     <div class="movie-grid" id="catGrid"></div>
+    <div class="pagination" id="catPagination"></div>
   </div>
 
 </main>
@@ -808,6 +809,9 @@ let currentMovie     = null;
 let searchType       = "title"; // "title" | "director"
 let allSearchResults = [];
 let searchPage       = 1;
+let allCatMovies     = [];
+let allCatRows       = [];
+let catPage          = 1;
 const PAGE_SIZE      = 10;
 
 /* ── 유틸 ──────────────────────────────────── */
@@ -993,25 +997,63 @@ async function openCatView(id) {
   document.getElementById("catBarCount").textContent = "";
 
   const grid = document.getElementById("catGrid");
+  document.getElementById("catPagination").innerHTML = "";
   grid.innerHTML = `<div class="empty"><div class="spinner"></div>불러오는 중…</div>`;
 
   try {
-    const rows   = await apiGet(`/api/categories?catId=${id}`);
-    const movies = rows.map(r => r.movie_data);
+    const rows = await apiGet(`/api/categories?catId=${id}`);
+    allCatMovies = rows.map(r => r.movie_data);
+    allCatRows   = rows;
+    catPage      = 1;
 
-    document.getElementById("catBarCount").textContent = `${movies.length}편`;
-    if (cat) cat.movie_count = movies.length;
+    document.getElementById("catBarCount").textContent = `${allCatMovies.length}편`;
+    if (cat) cat.movie_count = allCatMovies.length;
 
-    if (!movies.length) {
+    if (!allCatMovies.length) {
       grid.innerHTML = `<div class="empty">아직 추가된 영화가 없습니다.<br>영화를 검색해서 이 카테고리에 추가해 보세요.</div>`;
       return;
     }
 
-    grid.innerHTML = movies.map((m, i) => cardHTML(m, true, rows[i].id)).join("");
-    bindCards(grid, movies, true, rows, id);
+    renderCatPage();
   } catch {
     grid.innerHTML = `<div class="empty">불러오기 실패</div>`;
   }
+}
+
+function renderCatPage() {
+  const start      = (catPage - 1) * PAGE_SIZE;
+  const pageItems  = allCatMovies.slice(start, start + PAGE_SIZE);
+  const pageRows   = allCatRows.slice(start, start + PAGE_SIZE);
+  const totalPages = Math.ceil(allCatMovies.length / PAGE_SIZE);
+  const grid       = document.getElementById("catGrid");
+
+  grid.innerHTML = pageItems.map((m, i) => cardHTML(m, true, pageRows[i].id)).join("");
+  bindCards(grid, pageItems, true, pageRows, activeCatId);
+  grid.scrollTop = 0;
+
+  const pg = document.getElementById("catPagination");
+  if (totalPages <= 1) { pg.innerHTML = ""; return; }
+
+  const show = new Set([1, totalPages,
+    catPage - 2, catPage - 1, catPage, catPage + 1, catPage + 2
+  ].filter(p => p >= 1 && p <= totalPages));
+  const sorted = [...show].sort((a, b) => a - b);
+
+  let html = `<button class="pg-btn" id="cpPrev" ${catPage === 1 ? "disabled" : ""}>←</button>`;
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) html += `<span class="pg-info">…</span>`;
+    html += `<button class="pg-btn${p === catPage ? " active" : ""}" data-cpage="${p}">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="pg-btn" id="cpNext" ${catPage === totalPages ? "disabled" : ""}>→</button>`;
+  pg.innerHTML = html;
+
+  pg.querySelectorAll("[data-cpage]").forEach(btn => {
+    btn.addEventListener("click", () => { catPage = parseInt(btn.dataset.cpage); renderCatPage(); });
+  });
+  pg.querySelector("#cpPrev")?.addEventListener("click", () => { catPage--; renderCatPage(); });
+  pg.querySelector("#cpNext")?.addEventListener("click", () => { catPage++; renderCatPage(); });
 }
 
 /* ── 카드 HTML ─────────────────────────────── */
@@ -1047,8 +1089,17 @@ function bindCards(grid, movies, inCat, rows = [], catId = null) {
           await apiDelete(`/api/categories?rowId=${rm.dataset.rowid}`);
           const cat = categories.find(c => c.id === catId);
           if (cat) cat.movie_count = Math.max(0, (cat.movie_count || 1) - 1);
+          const idx = allCatRows.findIndex(r => String(r.id) === String(rm.dataset.rowid));
+          if (idx !== -1) { allCatMovies.splice(idx, 1); allCatRows.splice(idx, 1); }
+          document.getElementById("catBarCount").textContent = `${allCatMovies.length}편`;
+          if (allCatMovies.length === 0) {
+            document.getElementById("catGrid").innerHTML = `<div class="empty">아직 추가된 영화가 없습니다.<br>영화를 검색해서 이 카테고리에 추가해 보세요.</div>`;
+            document.getElementById("catPagination").innerHTML = "";
+          } else {
+            if (catPage > Math.ceil(allCatMovies.length / PAGE_SIZE)) catPage = Math.max(1, catPage - 1);
+            renderCatPage();
+          }
           toast("카테고리에서 제거됨");
-          openCatView(catId);
         } catch { toast("제거 실패", "err"); }
       });
     }
