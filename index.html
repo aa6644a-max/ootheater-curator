@@ -378,9 +378,23 @@ body {
   width: 100%; height: 100%;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 6px; color: var(--muted); font-size: 0.62rem;
-  font-family: var(--mono);
+  gap: 8px;
+  padding: 12px;
+  box-sizing: border-box;
 }
+.no-poster .np-title {
+  color: rgba(255,255,255,0.85);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+  word-break: keep-all;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+.no-poster svg { flex-shrink: 0; opacity: 0.35; }
 
 .card-rm {
   position: absolute;
@@ -1063,12 +1077,29 @@ function renderCatPage() {
   pg.querySelector("#cpNext")?.addEventListener("click", () => { catPage++; renderCatPage(); });
 }
 
+/* ── 포스터 없을 때 제목 플레이스홀더 ──────── */
+const NP_GRADIENTS = [
+  ["#1a1a2e","#0f3460"], ["#1a2a1a","#0d3b1e"],
+  ["#2a1a1a","#3b0d0d"], ["#1e1a2e","#2d1b4e"],
+  ["#1a2626","#0d3333"], ["#26201a","#3d2e10"],
+];
+function posterPlaceholder(title) {
+  const idx = (title || "").split("").reduce((a,c) => a + c.charCodeAt(0), 0) % NP_GRADIENTS.length;
+  const [c1, c2] = NP_GRADIENTS[idx];
+  const safe = (title || "제목 미상").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return `<div class="no-poster" style="background:linear-gradient(160deg,${c1} 0%,${c2} 100%)">` +
+    `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,1)" stroke-width="1.2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>` +
+    `<span class="np-title">${safe}</span>` +
+    `</div>`;
+}
+
 /* ── 카드 HTML ─────────────────────────────── */
 function cardHTML(m, inCat, rowId = "") {
   const thumbSrc = m.poster_url || (m.stills && m.stills[0]) || "";
+  const titleAttr = (m.title || "").replace(/"/g, "&quot;");
   const img = thumbSrc
-    ? `<img src="${thumbSrc}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=no-poster>NO POSTER</div>'">`
-    : `<div class="no-poster"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/></svg>NO POSTER</div>`;
+    ? `<img src="${thumbSrc}" alt="" loading="lazy" data-title="${titleAttr}" onerror="this.outerHTML=posterPlaceholder(this.dataset.title)">`
+    : posterPlaceholder(m.title);
   const rm = inCat ? `<button class="card-rm" data-rowid="${rowId}">✕</button>` : "";
   return `
 <div class="card" data-id="${m.id}">
@@ -1121,9 +1152,10 @@ function openModal(m) {
 
   // 포스터 (없으면 스틸컷 첫 장으로 대체)
   const posterSrc = m.poster_url || (m.stills && m.stills[0]) || "";
+  const mTitleAttr = (m.title || "").replace(/"/g, "&quot;");
   document.getElementById("mPoster").innerHTML = posterSrc
-    ? `<img src="${posterSrc}" alt="" onerror="this.parentElement.innerHTML='<div class=modal-poster-ph>NO POSTER</div>'">`
-    : `<div class="modal-poster-ph">NO POSTER</div>`;
+    ? `<img src="${posterSrc}" alt="" data-title="${mTitleAttr}" onerror="this.outerHTML=posterPlaceholder(this.dataset.title)">`
+    : posterPlaceholder(m.title);
 
   // 제목
   document.getElementById("mTitle").textContent = m.title || "제목 미상";
