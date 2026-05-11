@@ -65,21 +65,11 @@ function parseKOFIC(m) {
   };
 }
 
-/* ── KMDb 검색 ───────────────────────────────── */
-async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query") {
-  const params = new URLSearchParams({
-    ServiceKey:  kmdbKey,
-    startCount:  "0",
-    listCount:   String(listCount),
-    detail:      "Y",
-    collection:  "kmdb_new2",
-  });
-  if (q) {
-    // title: 제목 한정 검색 (정확), query: 전체 필드 풀텍스트 (광범위)
-    params.set(searchBy === "title" ? "title" : "query", q);
-  }
-  if (director) params.set("director", director);
-
+/* ── KMDb 단일 검색 ──────────────────────────── */
+async function kmdbFetch(params, kmdbKey) {
+  params.set("ServiceKey", kmdbKey);
+  params.set("detail",     "Y");
+  params.set("collection", "kmdb_new2");
   try {
     const res  = await fetch(`${KMDB_BASE}?${params}`);
     const data = await res.json();
@@ -87,6 +77,46 @@ async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query
   } catch {
     return [];
   }
+}
+
+/* ── KMDb 검색 (title 우선, 없으면 query 폴백) ── */
+async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query") {
+  const base = { startCount: "0", listCount: String(listCount) };
+
+  if (director && !q) {
+    // 감독 검색
+    const p = new URLSearchParams({ ...base, director });
+    return kmdbFetch(p, kmdbKey);
+  }
+
+  if (searchBy === "title" && q) {
+    // 1차: title 파라미터로 정확 검색
+    const p1 = new URLSearchParams({ ...base, title: q });
+    if (director) p1.set("director", director);
+    const titleResults = await kmdbFetch(p1, kmdbKey);
+
+    // 2차: title 결과 없으면 query(전체필드)로 재시도
+    if (!titleResults.length) {
+      const p2 = new URLSearchParams({ ...base, query: q });
+      if (director) p2.set("director", director);
+      return kmdbFetch(p2, kmdbKey);
+    }
+
+    // title 결과 있으면 query도 병렬 실행 후 합산 (title 결과 먼저)
+    const p2 = new URLSearchParams({ ...base, query: q });
+    if (director) p2.set("director", director);
+    const queryResults = await kmdbFetch(p2, kmdbKey);
+
+    // title 결과를 앞에, query 추가분을 뒤에 (DOCID 기준 중복 제거)
+    const seen = new Set(titleResults.map(r => r.DOCID));
+    const extra = queryResults.filter(r => !seen.has(r.DOCID));
+    return [...titleResults, ...extra];
+  }
+
+  // query 모드 (기본)
+  const p = new URLSearchParams({ ...base, query: q });
+  if (director) p.set("director", director);
+  return kmdbFetch(p, kmdbKey);
 }
 
 /* ── KOFIC 제목 검색 (보완용) ────────────────── */
