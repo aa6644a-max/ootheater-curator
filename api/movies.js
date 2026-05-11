@@ -167,7 +167,7 @@ module.exports = async function handler(req, res) {
   if (q || director) {
     // KMDb 풀텍스트 검색과 KOFIC 검색을 병렬 실행
     const [kmdbItems, koficList] = await Promise.all([
-      kmdbQuery(q, director, kmdbKey, 20, searchBy),
+      kmdbQuery(q, director, kmdbKey, 50, searchBy),
       koficSearch(q, director, koficKey),
     ]);
 

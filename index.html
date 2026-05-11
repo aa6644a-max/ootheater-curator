@@ -302,6 +302,37 @@ body {
 .movie-grid::-webkit-scrollbar { width: 4px; }
 .movie-grid::-webkit-scrollbar-thumb { background: var(--border); }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.pagination:empty { display: none; }
+.pg-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all var(--ease);
+}
+.pg-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.pg-btn:disabled { opacity: 0.3; cursor: default; }
+.pg-btn.active { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
+.pg-info {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  padding: 0 6px;
+}
+
 /* ── 카테고리 뷰 ── */
 #catScreen {
   display: none;
@@ -709,6 +740,7 @@ body {
       <div class="results-stat" id="resStat"></div>
     </div>
     <div class="movie-grid" id="resGrid"></div>
+    <div class="pagination" id="pagination"></div>
   </div>
 
   <!-- 카테고리 뷰 화면 -->
@@ -770,10 +802,13 @@ body {
 
 <script>
 /* ── 전역 상태 ─────────────────────────────── */
-let categories   = [];
-let activeCatId  = null;
-let currentMovie = null;
-let searchType   = "title"; // "title" | "director"
+let categories       = [];
+let activeCatId      = null;
+let currentMovie     = null;
+let searchType       = "title"; // "title" | "director"
+let allSearchResults = [];
+let searchPage       = 1;
+const PAGE_SIZE      = 10;
 
 /* ── 유틸 ──────────────────────────────────── */
 let toastTimer;
@@ -876,6 +911,45 @@ function initSearchTypeToggle(groupId, inputId) {
   });
 }
 
+/* ── 검색 결과 페이지 렌더 ──────────────────── */
+function renderSearchPage() {
+  const start      = (searchPage - 1) * PAGE_SIZE;
+  const pageItems  = allSearchResults.slice(start, start + PAGE_SIZE);
+  const totalPages = Math.ceil(allSearchResults.length / PAGE_SIZE);
+  const grid       = document.getElementById("resGrid");
+
+  grid.innerHTML = pageItems.map(m => cardHTML(m, false)).join("");
+  bindCards(grid, pageItems, false);
+  grid.scrollTop = 0;
+
+  // 페이지네이션 UI
+  const pg = document.getElementById("pagination");
+  if (totalPages <= 1) { pg.innerHTML = ""; return; }
+
+  const pages = [];
+  // 항상 첫 페이지, 현재 ±2, 마지막 페이지 표시
+  const show = new Set([1, totalPages,
+    searchPage - 2, searchPage - 1, searchPage, searchPage + 1, searchPage + 2
+  ].filter(p => p >= 1 && p <= totalPages));
+  const sorted = [...show].sort((a, b) => a - b);
+
+  let html = `<button class="pg-btn" id="pgPrev" ${searchPage === 1 ? "disabled" : ""}>←</button>`;
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) html += `<span class="pg-info">…</span>`;
+    html += `<button class="pg-btn${p === searchPage ? " active" : ""}" data-page="${p}">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="pg-btn" id="pgNext" ${searchPage === totalPages ? "disabled" : ""}>→</button>`;
+  pg.innerHTML = html;
+
+  pg.querySelectorAll("[data-page]").forEach(btn => {
+    btn.addEventListener("click", () => { searchPage = parseInt(btn.dataset.page); renderSearchPage(); });
+  });
+  pg.querySelector("#pgPrev")?.addEventListener("click", () => { searchPage--; renderSearchPage(); });
+  pg.querySelector("#pgNext")?.addEventListener("click", () => { searchPage++; renderSearchPage(); });
+}
+
 /* ── 영화 검색 ─────────────────────────────── */
 async function doSearch(q) {
   if (!q.trim()) return;
@@ -885,6 +959,7 @@ async function doSearch(q) {
 
   document.getElementById("topInput").value = q;
   document.getElementById("resStat").textContent = "";
+  document.getElementById("pagination").innerHTML = "";
   const grid = document.getElementById("resGrid");
   grid.innerHTML = `<div class="empty"><div class="spinner"></div>검색 중…</div>`;
 
@@ -894,13 +969,14 @@ async function doSearch(q) {
 
   try {
     const { results } = await apiGet(`/api/movies?${param}`);
+    allSearchResults = results;
+    searchPage = 1;
     document.getElementById("resStat").textContent = `${results.length}편`;
     if (!results.length) {
       grid.innerHTML = `<div class="empty">검색 결과가 없습니다.</div>`;
       return;
     }
-    grid.innerHTML = results.map(m => cardHTML(m, false)).join("");
-    bindCards(grid, results, false);
+    renderSearchPage();
   } catch {
     grid.innerHTML = `<div class="empty">오류가 발생했습니다.<br>잠시 후 다시 시도해 주세요.</div>`;
   }
