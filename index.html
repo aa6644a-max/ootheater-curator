@@ -969,7 +969,7 @@ async function doSearch(q) {
 
   try {
     const { results } = await apiGet(`/api/movies?${param}`);
-    allSearchResults = results;
+    allSearchResults = results.slice().sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
     searchPage = 1;
     document.getElementById("resStat").textContent = `${results.length}편`;
     if (!results.length) {
