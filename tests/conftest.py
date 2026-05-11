@@ -14,8 +14,8 @@ os.environ.setdefault("KMDB_API_KEY",  "test_kmdb_key")
 os.environ.setdefault("SUPABASE_URL",  "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_KEY",  "test_service_role_key")
 
-# 루트 디렉토리를 모듈 검색 경로에 추가
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# pipeline 디렉토리를 모듈 검색 경로에 추가
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipeline"))
 
 # supabase 패키지를 mock으로 대체 (테스트 환경에서 설치 불필요)
 supabase_mock = MagicMock()
