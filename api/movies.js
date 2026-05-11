@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
     const koficData = await koficRes.json();
     const all       = koficData.movieListResult?.movieList || [];
     total           = parseInt(koficData.movieListResult?.totCnt || "0");
-    koficMovies     = all.filter(m => m.repNationNm === "한국");
+    koficMovies     = all.filter(m => (m.repNationNm || "").includes("한국"));
   } catch (err) {
     return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
   }
@@ -109,5 +109,7 @@ module.exports = async function handler(req, res) {
     })
   );
 
-  res.json({ results, total, page: parseInt(page) });
+  // total: 검색어 있을 때는 실제 결과 수, 없을 때는 KOFIC 원본 총계(페이지네이션용)
+  const responseTotal = (q || director) ? results.length : total;
+  res.json({ results, total: responseTotal, page: parseInt(page) });
 }
