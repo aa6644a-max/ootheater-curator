@@ -471,6 +471,96 @@ main {
 }
 .modal-close:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── 상세 필터 행 ────────────────────────────── */
+.adv-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.adv-row::-webkit-scrollbar { display: none; }
+.adv-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.adv-input {
+  width: 68px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.28rem 0.5rem;
+  outline: none;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+.adv-input::-webkit-outer-spin-button,
+.adv-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.adv-input:focus { border-color: var(--accent); }
+.adv-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.28rem 0.5rem;
+  outline: none;
+  cursor: pointer;
+}
+.adv-select:focus { border-color: var(--accent); }
+.adv-sep {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.adv-divider {
+  width: 1px; height: 14px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 0.2rem;
+}
+.adv-apply {
+  margin-left: 0.5rem;
+  flex-shrink: 0;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.28rem 0.85rem;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: opacity 0.15s;
+}
+.adv-apply:hover { opacity: 0.8; }
+.adv-reset {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  padding: 0.28rem 0.75rem;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.15s;
+}
+.adv-reset:hover { border-color: var(--danger); color: var(--danger); }
+
 /* ── 스크롤바 ────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
@@ -500,7 +590,7 @@ main {
   </div>
 </header>
 
-<!-- ────────── 퀵 필터 ────────── -->
+<!-- ────────── 퀵 필터 + 상세 필터 ────────── -->
 <div class="filters-bar">
   <div class="filters-inner">
     <span class="filter-label">필터</span>
@@ -511,6 +601,58 @@ main {
     <button class="qf" data-filter="feature">장편 (40분 이상)</button>
     <button class="qf" data-filter="noposter">포스터 미확보</button>
     <button class="qf" data-filter="favorites">즐겨찾기 ♥</button>
+  </div>
+  <div class="adv-row">
+    <span class="filter-label">상세</span>
+
+    <span class="adv-label">연도</span>
+    <input type="number" id="filterYearFrom" class="adv-input" placeholder="1990" />
+    <span class="adv-sep">~</span>
+    <input type="number" id="filterYearTo"   class="adv-input" placeholder="2026" />
+
+    <div class="adv-divider"></div>
+
+    <span class="adv-label">장르</span>
+    <select id="filterGenre" class="adv-select">
+      <option value="">전체</option>
+      <option value="드라마">드라마</option>
+      <option value="다큐멘터리">다큐멘터리</option>
+      <option value="코미디">코미디</option>
+      <option value="공포(호러)">공포</option>
+      <option value="로맨스">로맨스</option>
+      <option value="액션">액션</option>
+      <option value="애니메이션">애니메이션</option>
+      <option value="SF">SF</option>
+      <option value="판타지">판타지</option>
+      <option value="미스터리">미스터리</option>
+      <option value="스릴러">스릴러</option>
+      <option value="기타">기타</option>
+    </select>
+
+    <div class="adv-divider"></div>
+
+    <span class="adv-label">러닝타임</span>
+    <select id="filterRuntime" class="adv-select">
+      <option value="">전체</option>
+      <option value="short">단편 (~40분)</option>
+      <option value="mid">중편 (40~90분)</option>
+      <option value="long">장편 (90분~)</option>
+    </select>
+
+    <div class="adv-divider"></div>
+
+    <span class="adv-label">상태</span>
+    <select id="filterStatus" class="adv-select">
+      <option value="">전체</option>
+      <option value="미개봉">미개봉</option>
+      <option value="제작완료">제작완료</option>
+      <option value="개봉준비">개봉준비</option>
+      <option value="개봉">개봉</option>
+      <option value="기타">기타</option>
+    </select>
+
+    <button id="btnApplyAdv" class="adv-apply">적용</button>
+    <button id="btnResetAdv" class="adv-reset">초기화</button>
   </div>
 </div>
 
@@ -548,12 +690,19 @@ main {
 
 <script>
 /* ── 전역 상태 ── */
-let allMovies   = [];
+let allMovies    = [];
 let activeFilter = "all";
 let searchQuery  = "";
 let currentPage  = 1;
 let totalCount   = 0;
 let isLoading    = false;
+
+// 상세 필터 상태
+let filterYearFrom = "";
+let filterYearTo   = "";
+let filterGenre    = "";
+let filterRuntime  = "";
+let filterStatus   = "";
 
 /* ── 즐겨찾기 (localStorage) ── */
 const FAV_KEY = "ootheater_favorites";
@@ -575,8 +724,11 @@ function toggleFavorite(id, event) {
 /* ── API 호출 ── */
 async function fetchFromAPI(query = "", director = "", page = 1) {
   const params = new URLSearchParams({ page });
-  if (query)    params.set("q", query);
-  if (director) params.set("director", director);
+  if (query)         params.set("q",        query);
+  if (director)      params.set("director", director);
+  if (filterYearFrom) params.set("yearFrom", filterYearFrom);
+  if (filterYearTo)   params.set("yearTo",   filterYearTo);
+  if (filterGenre)    params.set("genre",    filterGenre);
   const res = await fetch(`/api/movies?${params}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -627,6 +779,7 @@ function showError() {
 function applyFilters(movies) {
   const q = searchQuery.trim().toLowerCase();
   return movies.filter(m => {
+    // 퀵 필터
     if (activeFilter === "jeonju") {
       if (!(m.keywords || []).join(" ").toLowerCase().includes("전주")) return false;
     }
@@ -638,6 +791,16 @@ function applyFilters(movies) {
     if (activeFilter === "feature")  { if (!m.runtime || m.runtime < 40)  return false; }
     if (activeFilter === "noposter") { if (m.poster_url) return false; }
     if (activeFilter === "favorites"){ if (!favorites.has(m.id)) return false; }
+
+    // 상세 필터 (클라이언트 사이드)
+    if (filterRuntime === "short" && (!m.runtime || m.runtime >= 40))           return false;
+    if (filterRuntime === "mid"   && (!m.runtime || m.runtime < 40 || m.runtime >= 90)) return false;
+    if (filterRuntime === "long"  && (!m.runtime || m.runtime < 90))             return false;
+    if (filterStatus) {
+      if (!(m.status || "").includes(filterStatus)) return false;
+    }
+
+    // 텍스트 검색
     if (q) {
       const hay = [m.title, m.director, m.plot, ...(m.keywords||[])].join(" ").toLowerCase();
       if (!hay.includes(q)) return false;
@@ -773,6 +936,38 @@ document.getElementById("searchInput").addEventListener("keydown", e => {
   if (e.key === "Enter") triggerSearch();
 });
 document.getElementById("btnSearch").addEventListener("click", triggerSearch);
+
+/* ── 상세 필터 ── */
+// 연도·장르: API 재호출 필요 → 적용 버튼
+document.getElementById("btnApplyAdv").addEventListener("click", () => {
+  filterYearFrom = document.getElementById("filterYearFrom").value.trim();
+  filterYearTo   = document.getElementById("filterYearTo").value.trim();
+  filterGenre    = document.getElementById("filterGenre").value;
+  filterRuntime  = document.getElementById("filterRuntime").value;
+  filterStatus   = document.getElementById("filterStatus").value;
+  loadMovies(true);
+});
+
+// 러닝타임·상태: 클라이언트 필터만 → 즉시 재렌더
+document.getElementById("filterRuntime").addEventListener("change", () => {
+  filterRuntime = document.getElementById("filterRuntime").value;
+  renderGrid();
+});
+document.getElementById("filterStatus").addEventListener("change", () => {
+  filterStatus = document.getElementById("filterStatus").value;
+  renderGrid();
+});
+
+// 초기화
+document.getElementById("btnResetAdv").addEventListener("click", () => {
+  document.getElementById("filterYearFrom").value = "";
+  document.getElementById("filterYearTo").value   = "";
+  document.getElementById("filterGenre").value    = "";
+  document.getElementById("filterRuntime").value  = "";
+  document.getElementById("filterStatus").value   = "";
+  filterYearFrom = filterYearTo = filterGenre = filterRuntime = filterStatus = "";
+  loadMovies(true);
+});
 
 /* ── 더 보기 ── */
 document.getElementById("btnLoadMore").addEventListener("click", () => {

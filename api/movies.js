@@ -14,7 +14,7 @@ const KMDB_BASE  = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  const { q = "", director = "", page = "1" } = req.query;
+  const { q = "", director = "", page = "1", yearFrom = "", yearTo = "", genre = "" } = req.query;
 
   // ── 1. KOFIC 검색 ────────────────────────────
   const koficParams = new URLSearchParams({
@@ -22,13 +22,20 @@ module.exports = async function handler(req, res) {
     curPage:     page,
     itemPerPage: "20",
   });
-  // 검색어 없을 때만 연도 제한 (기본 브라우징용)
-  if (!q && !director) {
+  // 연도 범위: 직접 지정 > 기본 브라우징용(검색어 없을 때 2020~2026)
+  if (yearFrom) {
+    koficParams.set("prdtStartYear", yearFrom);
+  } else if (!q && !director) {
     koficParams.set("prdtStartYear", "2020");
-    koficParams.set("prdtEndYear",   "2026");
   }
-  if (q)        koficParams.set("movieNm", q);
+  if (yearTo) {
+    koficParams.set("prdtEndYear", yearTo);
+  } else if (!q && !director) {
+    koficParams.set("prdtEndYear", "2026");
+  }
+  if (q)        koficParams.set("movieNm",    q);
   if (director) koficParams.set("directorNm", director);
+  if (genre)    koficParams.set("genreNm",    genre);
 
   let koficMovies = [], total = 0;
   try {
