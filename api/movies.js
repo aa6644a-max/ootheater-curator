@@ -15,6 +15,9 @@ const KMDB_BASE  = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api
 /* ── KMDb !HS !HE 하이라이트 태그 제거 ────────── */
 const clean = s => (s || "").replace(/!HS\s?|!HE\s?/g, "").trim();
 
+/* ── KMDb 썸네일 URL → 원본 해상도 URL 변환 ─── */
+const fullRes = url => url ? url.replace(/\/thm\//g, "/img/") : url;
+
 /* ── KMDb 결과 → 공통 레코드 변환 ─────────────── */
 function parseKMDb(item, koficMatch = null) {
   const directorList = item.directors?.director || [];
@@ -38,11 +41,11 @@ function parseKMDb(item, koficMatch = null) {
     type:       koficMatch?.typeNm    || "",
     genre:      clean((item.genre || koficMatch?.repGenreNm || "").split(",")[0]),
     runtime:    isNaN(rt) ? null : rt,
-    poster_url: posters ? posters.split("|")[0] : null,
+    poster_url: posters ? fullRes(posters.split("|")[0]) : null,
     plot:       clean(plotText),
     keywords:   kwRaw ? kwRaw.split("|").map(k => clean(k)).filter(Boolean) : [],
     actors:     actorList.slice(0, 8).map(a => clean(a.actorNm)).filter(Boolean),
-    stills:     stllsRaw ? stllsRaw.split("|").slice(0, 8).filter(Boolean) : [],
+    stills:     stllsRaw ? stllsRaw.split("|").slice(0, 8).filter(Boolean).map(fullRes) : [],
   };
 }
 
