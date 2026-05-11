@@ -64,6 +64,8 @@ module.exports = async function handler(req, res) {
         poster_url: null,
         plot:       null,
         keywords:   [],
+        actors:     [],
+        stills:     [],
       };
 
       if (!kmdbKey || !record.title) return record;
@@ -99,6 +101,12 @@ module.exports = async function handler(req, res) {
 
           const rt = parseInt(item.runtime);
           if (!isNaN(rt)) record.runtime = rt;
+
+          const actorList = item.actors?.actor || [];
+          record.actors = actorList.slice(0, 8).map(a => a.actorNm).filter(Boolean);
+
+          const stllsRaw = item.stlls || "";
+          record.stills = stllsRaw ? stllsRaw.split("|").slice(0, 8).filter(Boolean) : [];
           break;
         }
       } catch {
