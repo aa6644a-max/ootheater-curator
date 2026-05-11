@@ -18,12 +18,15 @@ module.exports = async function handler(req, res) {
 
   // ── 1. KOFIC 검색 ────────────────────────────
   const koficParams = new URLSearchParams({
-    key:           process.env.KOFIC_API_KEY,
-    curPage:       page,
-    itemPerPage:   "20",
-    prdtStartYear: "2023",   // 범위 넓혀서 영화제 출품 전 작품도 포함
-    prdtEndYear:   "2026",
+    key:         process.env.KOFIC_API_KEY,
+    curPage:     page,
+    itemPerPage: "20",
   });
+  // 검색어 없을 때만 연도 제한 (기본 브라우징용)
+  if (!q && !director) {
+    koficParams.set("prdtStartYear", "2020");
+    koficParams.set("prdtEndYear",   "2026");
+  }
   if (q)        koficParams.set("movieNm", q);
   if (director) koficParams.set("directorNm", director);
 
