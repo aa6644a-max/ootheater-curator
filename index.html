@@ -754,7 +754,7 @@ const FESTIVAL_WORDS = ["전주", "부산", "서울", "부천", "제주", "인�
 
 /* ── 카테고리 API ───────────────────────────── */
 async function apiGet(url)          { const r = await fetch(url); if (!r.ok) throw new Error(r.status); return r.json(); }
-async function apiPost(url, body)   { const r = await fetch(url, { method:"POST",  headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }); if (!r.ok) throw new Error(r.status); return r.json(); }
+async function apiPost(url, body)   { const r = await fetch(url, { method:"POST",  headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }); if (!r.ok) { let msg = r.status; try { const d = await r.json(); msg = d.error || d.message || d.hint || JSON.stringify(d); } catch {} throw new Error(msg); } return r.json(); }
 async function apiDelete(url)       { const r = await fetch(url, { method:"DELETE" }); if (!r.ok) throw new Error(r.status); }
 
 async function loadCategories() {
@@ -1021,7 +1021,7 @@ document.getElementById("dlgOk").addEventListener("click", async () => {
     renderSidebar();
     document.getElementById("dlgOverlay").classList.remove("open");
     toast(`"${name}" 생성됨`);
-  } catch { toast("생성 실패", "err"); }
+  } catch (e) { toast(`생성 실패: ${e.message}`, "err"); }
 });
 
 document.getElementById("dlgInput").addEventListener("keydown", e => {

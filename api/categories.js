@@ -77,12 +77,17 @@ module.exports = async function handler(req, res) {
       }
 
       // 카테고리 생성
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
+        return res.status(500).json({ error: "SUPABASE_URL 또는 SUPABASE_KEY 환경변수가 설정되지 않았습니다." });
+      }
       const r = await fetch(`${SUPABASE_URL}/rest/v1/categories`, {
         method:  "POST",
         headers: sbHeaders,
         body:    JSON.stringify({ name: body.name }),
       });
-      return res.status(r.status).json(await r.json());
+      const data = await r.json();
+      if (!r.ok) return res.status(r.status).json(data);
+      return res.status(r.status).json(data);
     }
 
     // ── DELETE ───────────────────────────────────
