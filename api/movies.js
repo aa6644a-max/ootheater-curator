@@ -61,22 +61,37 @@ async function tmdbSearch(q, tmdbKey, count = 20) {
   return all.slice(0, count);
 }
 
-/* ── TMDB 감독 이름으로 필모그래피 검색 ─────── */
-async function tmdbDirectorSearch(director, tmdbKey, count = 30) {
+/* ── TMDB 감독 필모그래피 검색 ──────────────── */
+async function tmdbDirectorSearch(director, tmdbKey, count = 30, tmdbMovieId = null) {
   if (!director || !tmdbKey) return [];
   try {
-    // 1. 인물 검색
-    const personRes = await fetch(
-      `${TMDB_BASE}/search/person?${new URLSearchParams({ api_key: tmdbKey, query: director, language: "ko-KR" })}`
-    );
-    const personData = await personRes.json();
-    const person = (personData.results || [])
-      .find(p => p.known_for_department === "Directing") || personData.results?.[0];
-    if (!person) return [];
+    let personId = null;
 
-    // 2. 해당 인물의 영화 연출작 목록
-    const creditsRes = await fetch(
-      `${TMDB_BASE}/person/${person.id}/movie_credits?${new URLSearchParams({ api_key: tmdbKey, language: "ko-KR" })}`
+    // tmdbMovieId가 있으면 해당 영화 크레딧에서 정확한 person ID 확인 (동명이인 방지)
+    if (tmdbMovieId) {
+      const credRes  = await fetch(`${TMDB_BASE}/movie/${tmdbMovieId}/credits?api_key=${tmdbKey}&language=ko-KR`);
+      const credData = await credRes.json();
+      const matched  = (credData.crew || []).find(
+        c => c.job === "Director" && norm(c.name) === norm(director)
+      );
+      if (matched) personId = matched.id;
+    }
+
+    // person ID 없으면 이름으로 검색 (첫 번째 감독 역할 인물)
+    if (!personId) {
+      const personRes  = await fetch(
+        `${TMDB_BASE}/search/person?${new URLSearchParams({ api_key: tmdbKey, query: director, language: "ko-KR" })}`
+      );
+      const personData = await personRes.json();
+      const person = (personData.results || []).find(p => p.known_for_department === "Directing")
+        || personData.results?.[0];
+      if (!person) return [];
+      personId = person.id;
+    }
+
+    // 해당 인물의 연출작 목록
+    const creditsRes  = await fetch(
+      `${TMDB_BASE}/person/${personId}/movie_credits?${new URLSearchParams({ api_key: tmdbKey, language: "ko-KR" })}`
     );
     const creditsData = await creditsRes.json();
 
@@ -255,7 +270,7 @@ module.exports = async function handler(req, res) {
 
   const {
     page = "1", yearFrom = "", yearTo = "", genre = "",
-    searchBy = "query",
+    searchBy = "query", tmdbMovieId = "",
   } = req.query;
 
   // 앞뒤 공백 제거 + 연속 공백 단일화
@@ -272,7 +287,7 @@ module.exports = async function handler(req, res) {
     // - 제목 검색: TMDB 제목검색 + KMDb + KOFIC
     // - 감독 검색: TMDB 인물→필모그래피 + KMDb 감독검색 + KOFIC 감독검색
     const [tmdbItems, kmdbItems, koficList] = await Promise.all([
-      q ? tmdbSearch(q, tmdbKey, 30) : tmdbDirectorSearch(director, tmdbKey, 30),
+      q ? tmdbSearch(q, tmdbKey, 30) : tmdbDirectorSearch(director, tmdbKey, 30, tmdbMovieId || null),
       kmdbQuery(q, director, kmdbKey, 50, searchBy),
       koficSearch(q, director, koficKey),
     ]);

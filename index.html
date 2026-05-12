@@ -1044,7 +1044,7 @@ document.addEventListener("keydown", e => {
   }
 });
 
-async function doSearch(rawQ, overrideType) {
+async function doSearch(rawQ, overrideType, tmdbMovieId = null) {
   const q = (rawQ || "").trim().replace(/\s+/g, " ");
   if (!q) return;
   if (overrideType) searchType = overrideType;
@@ -1061,7 +1061,7 @@ async function doSearch(rawQ, overrideType) {
   grid.innerHTML = `<div class="empty"><div class="spinner"></div>검색 중…</div>`;
 
   const param = searchType === "director"
-    ? `director=${encodeURIComponent(q)}`
+    ? `director=${encodeURIComponent(q)}${tmdbMovieId ? `&tmdbMovieId=${tmdbMovieId}` : ""}`
     : `q=${encodeURIComponent(q)}&searchBy=title`;
 
   try {
@@ -1253,8 +1253,9 @@ function openModal(m) {
   // 감독 클릭 → 감독 검색
   document.getElementById("mMeta").querySelectorAll(".director-link").forEach(el => {
     el.addEventListener("click", () => {
+      const tmdbId = currentMovie?.tmdb_id || null;
       closeModal();
-      doSearch(el.dataset.director, "director");
+      doSearch(el.dataset.director, "director", tmdbId);
     });
   });
 
