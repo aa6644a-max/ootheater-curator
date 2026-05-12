@@ -87,9 +87,18 @@ async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query
   }
 
   if (searchBy === "title" && q) {
+    const qNoSp = q.replace(/\s+/g, "");
+
     const p1 = new URLSearchParams({ ...base, title: q });
     if (director) p1.set("director", director);
-    const titleResults = await kmdbFetch(p1, kmdbKey);
+    let titleResults = await kmdbFetch(p1, kmdbKey);
+
+    // 공백 제거 버전으로 재시도
+    if (!titleResults.length && qNoSp !== q) {
+      const p1b = new URLSearchParams({ ...base, title: qNoSp });
+      if (director) p1b.set("director", director);
+      titleResults = await kmdbFetch(p1b, kmdbKey);
+    }
 
     if (!titleResults.length) {
       const p2 = new URLSearchParams({ ...base, query: q });
@@ -206,10 +215,13 @@ module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   const {
-    q = "", director = "",
     page = "1", yearFrom = "", yearTo = "", genre = "",
     searchBy = "query",
   } = req.query;
+
+  // 앞뒤 공백 제거 + 연속 공백 단일화
+  const q        = (req.query.q        || "").trim().replace(/\s+/g, " ");
+  const director = (req.query.director || "").trim().replace(/\s+/g, " ");
 
   const koficKey = process.env.KOFIC_API_KEY || "";
   const kmdbKey  = process.env.KMDB_API_KEY  || "";

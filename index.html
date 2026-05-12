@@ -976,8 +976,9 @@ function renderSearchPage() {
 }
 
 /* ── 영화 검색 ─────────────────────────────── */
-async function doSearch(q) {
-  if (!q.trim()) return;
+async function doSearch(rawQ) {
+  const q = rawQ.trim().replace(/\s+/g, " ");
+  if (!q) return;
   activeCatId = null;
   renderSidebar();
   showScreen("results");
