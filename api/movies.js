@@ -98,7 +98,8 @@ function parseTMDb(item) {
     type:       "",
     genre:      "",
     runtime:    item.runtime || null,
-    poster_url: item.poster_path ? `${TMDB_IMG}${item.poster_path}` : null,
+    poster_url: item.poster_path    ? `${TMDB_IMG}${item.poster_path}`    : null,
+    backdrop:   item.backdrop_path  ? `https://image.tmdb.org/t/p/w780${item.backdrop_path}` : null,
     plot:       item.overview || "",
     keywords:   [],
     actors:     [],
@@ -241,7 +242,8 @@ function mergeRecord(tmdb, kmdb, kofic) {
     plot:       (t?.plot && t.plot.length > 10 ? t.plot : "") || k?.plot || "",
     keywords:   k?.keywords?.length ? k.keywords : [],
     actors:     t?.actors?.length   ? t.actors   : (k?.actors || []),
-    stills:     k?.stills || [],
+    // KMDb 스틸컷 우선, 없으면 TMDB backdrop 사용, 둘 다 합산
+    stills:     [...(k?.stills || []), ...(t?.backdrop ? [t.backdrop] : [])],
   };
 
   return merged;
@@ -281,14 +283,24 @@ module.exports = async function handler(req, res) {
     const isDupe = (title, year) =>
       results.some(r => norm(r.title) === norm(title) && yearClose(r.year, year, 1));
 
+    const usedKmdbIds  = new Set();
+    const usedKoficIds = new Set();
+
     // 1순위: TMDB 결과 기준 merge
     for (const tmdb of tmdbItems) {
       const tYear  = (tmdb.release_date || "").substring(0, 4);
       const tTitle = tmdb.title || tmdb.original_title || "";
       if (isDupe(tTitle, tYear)) continue;
 
-      const kmdb  = kmdbItems.find(i => norm(clean(i.title)) === norm(tTitle) && yearClose(i.prodYear, tYear));
-      const kofic = koficList.find(i => norm(i.movieNm)      === norm(tTitle) && yearClose(i.prdtYear, tYear));
+      // 제목+연도 매칭 → 실패 시 연도만으로 폴백 (영문/한글 제목 혼용 대응)
+      let kmdb = kmdbItems.find(i => norm(clean(i.title)) === norm(tTitle) && yearClose(i.prodYear, tYear));
+      if (!kmdb) kmdb = kmdbItems.find(i => yearClose(i.prodYear, tYear) && !usedKmdbIds.has(i.DOCID));
+
+      let kofic = koficList.find(i => norm(i.movieNm) === norm(tTitle) && yearClose(i.prdtYear, tYear));
+      if (!kofic) kofic = koficList.find(i => yearClose(i.prdtYear, tYear) && !usedKoficIds.has(i.movieCd));
+
+      if (kmdb)  usedKmdbIds.add(kmdb.DOCID);
+      if (kofic) usedKoficIds.add(kofic.movieCd);
 
       const record = mergeRecord(tmdb, kmdb || null, kofic || null);
       if (!record.title) continue;
