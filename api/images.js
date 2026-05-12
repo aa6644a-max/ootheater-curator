@@ -4,6 +4,7 @@
  */
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "s-maxage=86400, stale-while-revalidate=604800");
 
   const { tmdbId } = req.query;
   const tmdbKey = process.env.TMDB_API_KEY || "";

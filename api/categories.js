@@ -17,6 +17,7 @@ const TMDB_IMG     = "https://image.tmdb.org/t/p/w500";
 const KMDB_BASE    = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp";
 
 const fixUrl = u => u.replace(/^http:\/\//i, "https://").replace(/\/img\//g, "/thm/");
+const ENRICH_TTL = 7 * 24 * 60 * 60 * 1000; // 7일
 
 /* ── 카테고리 영화 데이터 자동 보강 + Supabase 캐시 업데이트 ── */
 async function enrichRow(row, sbHeaders) {
@@ -25,13 +26,26 @@ async function enrichRow(row, sbHeaders) {
 
   let changed = false;
 
-  // 1. 깨진 KMDb 스틸컷 URL 수정 (http→https, /img/→/thm/)
+  // URL 수정은 API 호출 없이 항상 즉시 적용
   if (m.stills?.length) {
     const fixed = m.stills.map(fixUrl);
     if (fixed.some((u, i) => u !== m.stills[i])) { m.stills = fixed; changed = true; }
   }
 
-  // 2. TMDB 보강 — 포스터 또는 tmdb_id 누락 시
+  // 7일 이내 보강 완료된 경우 → API 호출 없이 리턴
+  const fresh = m.enriched_at && (Date.now() - new Date(m.enriched_at).getTime() < ENRICH_TTL);
+  if (fresh) {
+    if (changed) {
+      fetch(`${SUPABASE_URL}/rest/v1/category_movies?id=eq.${row.id}`, {
+        method:  "PATCH",
+        headers: { ...sbHeaders, Prefer: "return=minimal" },
+        body:    JSON.stringify({ movie_data: m }),
+      }).catch(() => {});
+    }
+    return m;
+  }
+
+  // TMDB 보강 — 포스터 또는 tmdb_id 누락 시
   if ((!m.poster_url || !m.tmdb_id) && TMDB_KEY) {
     try {
       const p = new URLSearchParams({ api_key: TMDB_KEY, query: m.title, language: "ko-KR", region: "KR" });
@@ -48,7 +62,7 @@ async function enrichRow(row, sbHeaders) {
     } catch {}
   }
 
-  // 3. KMDb 스틸컷 보강 — stills 비어있을 때
+  // KMDb 스틸컷 보강 — stills 비어있을 때
   if (!m.stills?.length && KMDB_KEY) {
     try {
       const p = new URLSearchParams({
@@ -70,14 +84,15 @@ async function enrichRow(row, sbHeaders) {
     } catch {}
   }
 
+  // 보강 완료 시각 기록
+  m.enriched_at = new Date().toISOString();
+
   // 변경 사항 Supabase에 비동기 캐시 업데이트
-  if (changed) {
-    fetch(`${SUPABASE_URL}/rest/v1/category_movies?id=eq.${row.id}`, {
-      method:  "PATCH",
-      headers: { ...sbHeaders, Prefer: "return=minimal" },
-      body:    JSON.stringify({ movie_data: m }),
-    }).catch(() => {});
-  }
+  fetch(`${SUPABASE_URL}/rest/v1/category_movies?id=eq.${row.id}`, {
+    method:  "PATCH",
+    headers: { ...sbHeaders, Prefer: "return=minimal" },
+    body:    JSON.stringify({ movie_data: m }),
+  }).catch(() => {});
 
   return m;
 }
@@ -108,10 +123,11 @@ module.exports = async function handler(req, res) {
         const rows = await r.json();
         if (!r.ok) return res.status(r.status).json(rows);
 
-        // poster 없는 항목 TMDB로 보강 (병렬)
+        // 데이터 보강 (병렬) — enrichRow 내부에서 7일 TTL 캐시 적용
         const enrichedRows = await Promise.all(
           rows.map(async row => ({ ...row, movie_data: await enrichRow(row, sbHeaders) }))
         );
+        res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
         return res.status(200).json(enrichedRows);
       }
 
@@ -127,6 +143,7 @@ module.exports = async function handler(req, res) {
         created_at:  c.created_at,
         movie_count: c.category_movies?.[0]?.count ?? 0,
       }));
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
       return res.status(r.status).json(data);
     }
 

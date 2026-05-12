@@ -389,6 +389,7 @@ module.exports = async function handler(req, res) {
       results.push(parseKOFIC(kofic));
     }
 
+    res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
     return res.json({ results, total: results.length, page: 1 });
   }
 
@@ -413,24 +414,9 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
   }
 
-  // TMDB + KMDb 병렬 보강
-  const results = await Promise.all(
-    koficMovies.map(async (m) => {
-      const base = parseKOFIC(m);
-      if (!base.title) return base;
+  // KOFIC 기본 데이터만 반환 — 상세 보강은 모달 열 때 수행
+  const results = koficMovies.map(m => parseKOFIC(m)).filter(m => m.title);
 
-      const [tmdbItems, kmdbItems] = await Promise.all([
-        tmdbSearch(base.title, tmdbKey, 3),
-        kmdbQuery(base.title, base.director, kmdbKey, 3),
-      ]);
-
-      const targetYear = parseInt(base.year) || 2026;
-      const tmdb = tmdbItems.find(t => yearClose((t.release_date || "").substring(0, 4), targetYear)) || null;
-      const kmdb = kmdbItems.find(i => yearClose(i.prodYear, targetYear)) || null;
-
-      return mergeRecord(tmdb, kmdb, m);
-    })
-  );
-
+  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
   res.json({ results, total, page: parseInt(page) });
 };
