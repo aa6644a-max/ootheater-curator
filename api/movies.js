@@ -22,7 +22,7 @@ const TMDB_BASE  = "https://api.themoviedb.org/3";
 const TMDB_IMG   = "https://image.tmdb.org/t/p/w500";
 
 const clean   = s => (s || "").replace(/!HS\s?|!HE\s?/g, "").trim();
-const fullRes = url => url ? url.replace(/\/thm\//g, "/img/") : url;
+const fullRes = url => url ? url.replace(/^http:\/\//i, "https://") : url;
 
 /* ── 제목 정규화 (중복 판단용) ──────────────── */
 const norm = t => (t || "").toLowerCase().replace(/[\s\-·:：]/g, "");
