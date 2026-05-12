@@ -1275,18 +1275,38 @@ function openModal(m) {
     plotEl.style.display = "none";
   }
 
-  // 스틸컷
-  const stills = m.stills || [];
+  // 스틸컷 (KMDb 우선 표시 후 TMDB 추가 로드)
+  const stills  = m.stills || [];
   const stillEl = document.getElementById("mStills");
+  const row     = document.getElementById("mStillsRow");
+
+  const renderStills = (urls) => {
+    const existing = new Set([...row.querySelectorAll("img")].map(i => i.src));
+    const fresh    = urls.filter(u => !existing.has(u));
+    if (!fresh.length) return;
+    fresh.forEach(s => {
+      const img = document.createElement("img");
+      img.src = s; img.alt = ""; img.loading = "lazy";
+      img.addEventListener("click", () => openLightbox(img.src));
+      row.appendChild(img);
+    });
+    stillEl.style.display = "";
+  };
+
   if (stills.length) {
     stillEl.style.display = "";
-    const row = document.getElementById("mStillsRow");
-    row.innerHTML = stills.map(s => `<img src="${s}" alt="" loading="lazy">`).join("");
-    row.querySelectorAll("img").forEach(img => {
-      img.addEventListener("click", () => openLightbox(img.src));
-    });
+    row.innerHTML = "";
+    renderStills(stills);
   } else {
     stillEl.style.display = "none";
+    row.innerHTML = "";
+  }
+
+  // TMDB 스틸컷 추가 비동기 로드
+  if (m.tmdb_id) {
+    apiGet(`/api/images?tmdbId=${m.tmdb_id}`)
+      .then(data => { if (data.stills?.length) renderStills(data.stills); })
+      .catch(() => {});
   }
 
   document.getElementById("mCatSel").value = "";
