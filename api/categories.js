@@ -12,40 +12,74 @@
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const TMDB_KEY     = process.env.TMDB_API_KEY || "";
+const KMDB_KEY     = process.env.KMDB_API_KEY  || "";
 const TMDB_IMG     = "https://image.tmdb.org/t/p/w500";
+const KMDB_BASE    = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp";
 
-/* ── poster 없는 영화 TMDB로 보강 + Supabase 업데이트 ── */
+const fixUrl = u => u.replace(/^http:\/\//i, "https://").replace(/\/img\//g, "/thm/");
+
+/* ── 카테고리 영화 데이터 자동 보강 + Supabase 캐시 업데이트 ── */
 async function enrichRow(row, sbHeaders) {
-  const m = row.movie_data || {};
-  if (m.poster_url || !TMDB_KEY || !m.title) return m;
+  const m = { ...(row.movie_data || {}) };
+  if (!m.title) return m;
 
-  try {
-    const p = new URLSearchParams({ api_key: TMDB_KEY, query: m.title, language: "ko-KR", region: "KR" });
-    const res  = await fetch(`https://api.themoviedb.org/3/search/movie?${p}`);
-    const data = await res.json();
-    const match = (data.results || [])
-      .filter(r => r.original_language === "ko")
-      .find(r => Math.abs(parseInt((r.release_date || "").substring(0, 4)) - parseInt(m.year)) <= 1);
+  let changed = false;
 
-    if (!match) return m;
+  // 1. 깨진 KMDb 스틸컷 URL 수정 (http→https, /img/→/thm/)
+  if (m.stills?.length) {
+    const fixed = m.stills.map(fixUrl);
+    if (fixed.some((u, i) => u !== m.stills[i])) { m.stills = fixed; changed = true; }
+  }
 
-    const enriched = {
-      ...m,
-      poster_url: match.poster_path ? `${TMDB_IMG}${match.poster_path}` : m.poster_url,
-      plot:       (!m.plot && match.overview) ? match.overview : m.plot,
-    };
+  // 2. TMDB 보강 — 포스터 또는 tmdb_id 누락 시
+  if ((!m.poster_url || !m.tmdb_id) && TMDB_KEY) {
+    try {
+      const p = new URLSearchParams({ api_key: TMDB_KEY, query: m.title, language: "ko-KR", region: "KR" });
+      const res  = await fetch(`https://api.themoviedb.org/3/search/movie?${p}`);
+      const data = await res.json();
+      const match = (data.results || [])
+        .filter(r => r.original_language === "ko")
+        .find(r => Math.abs(parseInt((r.release_date || "").substring(0, 4)) - parseInt(m.year)) <= 1);
+      if (match) {
+        if (!m.poster_url && match.poster_path) { m.poster_url = `${TMDB_IMG}${match.poster_path}`; changed = true; }
+        if (!m.plot && match.overview)           { m.plot = match.overview; changed = true; }
+        if (!m.tmdb_id && match.id)              { m.tmdb_id = match.id;   changed = true; }
+      }
+    } catch {}
+  }
 
-    // Supabase에 업데이트 (다음 로드부터 캐시)
+  // 3. KMDb 스틸컷 보강 — stills 비어있을 때
+  if (!m.stills?.length && KMDB_KEY) {
+    try {
+      const p = new URLSearchParams({
+        ServiceKey: KMDB_KEY, detail: "Y", collection: "kmdb_new2",
+        title: m.title, startCount: "0", listCount: "5",
+      });
+      const firstDir = (m.director || "").split(",")[0].trim();
+      if (firstDir) p.set("director", firstDir);
+      const r    = await fetch(`${KMDB_BASE}?${p}`);
+      const data = await r.json();
+      const results = data?.Data?.[0]?.Result || [];
+      const hit = results.find(item =>
+        !m.year || Math.abs(parseInt(item.prodYear) - parseInt(m.year)) <= 1
+      );
+      if (hit?.stlls) {
+        const stills = hit.stlls.split("|").slice(0, 8).filter(Boolean).map(fixUrl);
+        if (stills.length) { m.stills = stills; changed = true; }
+      }
+    } catch {}
+  }
+
+  // 변경 사항 Supabase에 비동기 캐시 업데이트
+  if (changed) {
     fetch(`${SUPABASE_URL}/rest/v1/category_movies?id=eq.${row.id}`, {
       method:  "PATCH",
       headers: { ...sbHeaders, Prefer: "return=minimal" },
-      body:    JSON.stringify({ movie_data: enriched }),
+      body:    JSON.stringify({ movie_data: m }),
     }).catch(() => {});
-
-    return enriched;
-  } catch {
-    return m;
   }
+
+  return m;
 }
 
 const sbHeaders = {
