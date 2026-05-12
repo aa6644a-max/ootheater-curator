@@ -61,6 +61,29 @@ async function tmdbSearch(q, tmdbKey, count = 20) {
   return all.slice(0, count);
 }
 
+/* ── TMDB 배우 출연작 검색 ──────────────────── */
+async function tmdbActorSearch(actor, tmdbKey, count = 30) {
+  if (!actor || !tmdbKey) return [];
+  try {
+    const personRes  = await fetch(
+      `${TMDB_BASE}/search/person?${new URLSearchParams({ api_key: tmdbKey, query: actor, language: "ko-KR" })}`
+    );
+    const personData = await personRes.json();
+    const person = (personData.results || []).find(p => p.known_for_department === "Acting")
+      || personData.results?.[0];
+    if (!person) return [];
+
+    const creditsRes  = await fetch(
+      `${TMDB_BASE}/person/${person.id}/movie_credits?${new URLSearchParams({ api_key: tmdbKey, language: "ko-KR" })}`
+    );
+    const creditsData = await creditsRes.json();
+    return (creditsData.cast || [])
+      .filter(m => m.original_language === "ko")
+      .sort((a, b) => (b.release_date || "").localeCompare(a.release_date || ""))
+      .slice(0, count);
+  } catch { return []; }
+}
+
 /* ── TMDB 감독 필모그래피 검색 ──────────────── */
 async function tmdbDirectorSearch(director, tmdbKey, count = 30, tmdbMovieId = null) {
   if (!director || !tmdbKey) return [];
@@ -284,14 +307,41 @@ module.exports = async function handler(req, res) {
 
   /* ════ 검색 모드 ════════════════════════════ */
   if (q || director) {
-    // 3개 소스 동시 검색
-    // - 제목 검색: TMDB 제목검색 + KMDb + KOFIC
-    // - 감독 검색: TMDB 인물→필모그래피 + KMDb 감독검색 + KOFIC 감독검색
-    const [tmdbItems, kmdbItems, koficList] = await Promise.all([
-      q ? tmdbSearch(q, tmdbKey, 30) : tmdbDirectorSearch(director, tmdbKey, 30, tmdbMovieId || null),
-      kmdbQuery(q, director, kmdbKey, 50, searchBy),
-      koficSearch(q, director, koficKey),
-    ]);
+    // searchBy: "title" | "director" | "keyword" | "actor"
+    let tmdbItems, kmdbItems, koficList;
+
+    if (searchBy === "actor" && q) {
+      // 배우 검색: TMDB 배우 출연작 + KMDb actor 파라미터
+      [tmdbItems, kmdbItems, koficList] = await Promise.all([
+        tmdbActorSearch(q, tmdbKey, 30),
+        (async () => {
+          const p = new URLSearchParams({
+            ServiceKey: kmdbKey, detail: "Y", collection: "kmdb_new2",
+            actor: q, startCount: "0", listCount: "50",
+          });
+          try {
+            const r = await fetch(`${KMDB_BASE}?${p}`);
+            const d = await r.json();
+            return d?.Data?.[0]?.Result || [];
+          } catch { return []; }
+        })(),
+        Promise.resolve([]),
+      ]);
+    } else if (searchBy === "keyword" && q) {
+      // 키워드 검색: KMDb 전체필드 query + TMDB 제목 검색 병행
+      [tmdbItems, kmdbItems, koficList] = await Promise.all([
+        tmdbSearch(q, tmdbKey, 30),
+        kmdbQuery(q, "", kmdbKey, 50, "query"),
+        Promise.resolve([]),
+      ]);
+    } else {
+      // 제목 / 감독 검색 (기존 로직)
+      [tmdbItems, kmdbItems, koficList] = await Promise.all([
+        q ? tmdbSearch(q, tmdbKey, 30) : tmdbDirectorSearch(director, tmdbKey, 30, tmdbMovieId || null),
+        kmdbQuery(q, director, kmdbKey, 50, searchBy),
+        koficSearch(q, director, koficKey),
+      ]);
+    }
 
     const results = [];
 

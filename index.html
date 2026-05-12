@@ -289,6 +289,106 @@ body {
   margin-left: auto;
 }
 
+/* ── 고급 검색 패널 ── */
+.adv-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 5px 10px;
+  font-size: 0.7rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--mono);
+  white-space: nowrap;
+  transition: all var(--ease);
+  flex-shrink: 0;
+}
+.adv-toggle:hover, .adv-toggle.open { color: var(--accent); border-color: var(--accent); }
+.adv-panel {
+  display: none;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+.adv-panel.open { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.adv-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.adv-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+  min-width: 42px;
+}
+.adv-field input[type="number"] {
+  width: 68px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-family: var(--mono);
+  outline: none;
+}
+.adv-field input[type="number"]:focus { border-color: var(--accent); }
+.adv-field select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-family: var(--font);
+  outline: none;
+  cursor: pointer;
+}
+.adv-field select:focus { border-color: var(--accent); }
+.adv-radios {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.adv-radios label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.adv-radios input[type="radio"] { accent-color: var(--accent); cursor: pointer; }
+.adv-reset {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all var(--ease);
+  align-self: center;
+}
+.adv-reset:hover { color: var(--danger); border-color: var(--danger); }
+.adv-active-count {
+  display: inline-block;
+  background: var(--accent);
+  color: #111;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 1px 5px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+
 .movie-grid {
   flex: 1;
   overflow-y: auto;
@@ -780,6 +880,8 @@ body {
       <div class="search-type" id="homeSearchType">
         <button class="active" data-type="title">제목</button>
         <button data-type="director">감독</button>
+        <button data-type="keyword">키워드</button>
+        <button data-type="actor">배우</button>
       </div>
       <div class="search-wrap" style="flex:1;max-width:none">
         <input id="homeInput" type="text" placeholder="영화 제목으로 검색…" autocomplete="off" />
@@ -795,12 +897,58 @@ body {
       <div class="search-type" id="topSearchType">
         <button class="active" data-type="title">제목</button>
         <button data-type="director">감독</button>
+        <button data-type="keyword">키워드</button>
+        <button data-type="actor">배우</button>
       </div>
       <div class="results-search">
         <input id="topInput" type="text" placeholder="다시 검색…" autocomplete="off" />
         <button id="topBtn">검색</button>
       </div>
+      <button class="adv-toggle" id="advToggle">필터 ▾</button>
       <div class="results-stat" id="resStat"></div>
+    </div>
+    <div class="adv-panel" id="advPanel">
+      <div class="adv-field">
+        <span class="adv-label">연도</span>
+        <input type="number" id="fYearFrom" placeholder="시작" min="2000" max="2030">
+        <span style="color:var(--muted);font-size:0.8rem">~</span>
+        <input type="number" id="fYearTo" placeholder="종료" min="2000" max="2030">
+      </div>
+      <div class="adv-field">
+        <span class="adv-label">장르</span>
+        <select id="fGenre">
+          <option value="">전체</option>
+          <option>드라마</option>
+          <option>다큐멘터리</option>
+          <option>애니메이션</option>
+          <option>코미디</option>
+          <option>스릴러</option>
+          <option>공포</option>
+          <option>멜로/로맨스</option>
+          <option>액션</option>
+          <option>가족</option>
+          <option>음악</option>
+          <option>SF</option>
+        </select>
+      </div>
+      <div class="adv-field">
+        <span class="adv-label">러닝타임</span>
+        <div class="adv-radios">
+          <label><input type="radio" name="fRuntime" value="" checked> 전체</label>
+          <label><input type="radio" name="fRuntime" value="short"> 단편 &lt;40분</label>
+          <label><input type="radio" name="fRuntime" value="feature"> 장편 ≥40분</label>
+        </div>
+      </div>
+      <div class="adv-field">
+        <span class="adv-label">개봉상태</span>
+        <div class="adv-radios">
+          <label><input type="radio" name="fStatus" value="" checked> 전체</label>
+          <label><input type="radio" name="fStatus" value="미개봉"> 미개봉</label>
+          <label><input type="radio" name="fStatus" value="제작완료"> 제작완료</label>
+          <label><input type="radio" name="fStatus" value="개봉준비"> 개봉준비</label>
+        </div>
+      </div>
+      <button class="adv-reset" id="advReset">초기화</button>
     </div>
     <div class="movie-grid" id="resGrid"></div>
     <div class="pagination" id="pagination"></div>
@@ -875,9 +1023,15 @@ body {
 let categories       = [];
 let activeCatId      = null;
 let currentMovie     = null;
-let searchType       = "title"; // "title" | "director"
+let searchType       = "title"; // "title" | "director" | "keyword" | "actor"
 let allSearchResults = [];
+let filteredResults  = [];
 let searchPage       = 1;
+let filterYearFrom   = "";
+let filterYearTo     = "";
+let filterGenre      = "";
+let filterRuntime    = ""; // "" | "short" | "feature"
+let filterStatus     = "";
 let allCatMovies     = [];
 let allCatRows       = [];
 let catPage          = 1;
@@ -961,34 +1115,109 @@ function updateCatSel() {
     categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
 }
 
+/* ── 필터 적용 ──────────────────────────────── */
+function applyFilters(results) {
+  return results.filter(m => {
+    const yr = parseInt(m.year) || 0;
+    if (filterYearFrom && yr < parseInt(filterYearFrom)) return false;
+    if (filterYearTo   && yr > parseInt(filterYearTo))   return false;
+    if (filterGenre    && !(m.genre || "").includes(filterGenre)) return false;
+    if (filterRuntime === "short"   && !(m.runtime != null && m.runtime < 40))  return false;
+    if (filterRuntime === "feature" && !(m.runtime != null && m.runtime >= 40)) return false;
+    if (filterStatus   && !(m.status || "").includes(filterStatus)) return false;
+    return true;
+  });
+}
+
+function activeFilterCount() {
+  return [filterYearFrom, filterYearTo, filterGenre, filterRuntime, filterStatus].filter(Boolean).length;
+}
+
+function updateAdvToggleLabel() {
+  const cnt = activeFilterCount();
+  const btn = document.getElementById("advToggle");
+  if (!btn) return;
+  btn.innerHTML = cnt
+    ? `필터 ▾ <span class="adv-active-count">${cnt}</span>`
+    : "필터 ▾";
+}
+
 /* ── 검색 타입 토글 ─────────────────────────── */
+const PH = {
+  title:    "영화 제목으로 검색…",
+  director: "감독 이름으로 검색…",
+  keyword:  "키워드로 검색… (예: 전주영화제, 여성, 이주)",
+  actor:    "배우 이름으로 검색…",
+};
 function initSearchTypeToggle(groupId, inputId) {
   const group = document.getElementById(groupId);
-  const input = document.getElementById(inputId);
   group.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      group.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
       searchType = btn.dataset.type;
-      // 양쪽 토글 동기화
       ["homeSearchType", "topSearchType"].forEach(id => {
         document.getElementById(id)?.querySelectorAll("button").forEach(b => {
           b.classList.toggle("active", b.dataset.type === searchType);
         });
       });
-      // placeholder 업데이트
-      const ph = searchType === "director" ? "감독 이름으로 검색…" : "영화 제목으로 검색…";
-      document.getElementById("homeInput").placeholder = ph;
-      document.getElementById("topInput").placeholder  = ph;
+      document.getElementById("homeInput").placeholder = PH[searchType] || PH.title;
+      document.getElementById("topInput").placeholder  = PH[searchType] || PH.title;
     });
+  });
+}
+
+/* ── 고급 패널 초기화 ────────────────────────── */
+function initAdvPanel() {
+  const toggle = document.getElementById("advToggle");
+  const panel  = document.getElementById("advPanel");
+
+  toggle.addEventListener("click", () => {
+    const open = panel.classList.toggle("open");
+    toggle.classList.toggle("open", open);
+  });
+
+  const reApply = () => {
+    filterYearFrom = document.getElementById("fYearFrom").value.trim();
+    filterYearTo   = document.getElementById("fYearTo").value.trim();
+    filterGenre    = document.getElementById("fGenre").value;
+    filterRuntime  = document.querySelector('input[name="fRuntime"]:checked')?.value || "";
+    filterStatus   = document.querySelector('input[name="fStatus"]:checked')?.value  || "";
+    filteredResults = applyFilters(allSearchResults);
+    searchPage = 1;
+    updateAdvToggleLabel();
+    renderSearchPage();
+    document.getElementById("resStat").textContent =
+      filteredResults.length !== allSearchResults.length
+        ? `${filteredResults.length} / ${allSearchResults.length}편`
+        : `${allSearchResults.length}편`;
+  };
+
+  document.getElementById("fYearFrom").addEventListener("change", reApply);
+  document.getElementById("fYearTo").addEventListener("change",   reApply);
+  document.getElementById("fGenre").addEventListener("change",    reApply);
+  document.querySelectorAll('input[name="fRuntime"]').forEach(r => r.addEventListener("change", reApply));
+  document.querySelectorAll('input[name="fStatus"]').forEach(r  => r.addEventListener("change", reApply));
+
+  document.getElementById("advReset").addEventListener("click", () => {
+    document.getElementById("fYearFrom").value = "";
+    document.getElementById("fYearTo").value   = "";
+    document.getElementById("fGenre").value    = "";
+    document.querySelector('input[name="fRuntime"][value=""]').checked = true;
+    document.querySelector('input[name="fStatus"][value=""]').checked  = true;
+    filterYearFrom = filterYearTo = filterGenre = filterRuntime = filterStatus = "";
+    filteredResults = allSearchResults.slice();
+    searchPage = 1;
+    updateAdvToggleLabel();
+    renderSearchPage();
+    document.getElementById("resStat").textContent = `${allSearchResults.length}편`;
   });
 }
 
 /* ── 검색 결과 페이지 렌더 ──────────────────── */
 function renderSearchPage() {
+  const src        = filteredResults.length ? filteredResults : allSearchResults;
   const start      = (searchPage - 1) * PAGE_SIZE;
-  const pageItems  = allSearchResults.slice(start, start + PAGE_SIZE);
-  const totalPages = Math.ceil(allSearchResults.length / PAGE_SIZE);
+  const pageItems  = src.slice(start, start + PAGE_SIZE);
+  const totalPages = Math.ceil(src.length / PAGE_SIZE);
   const grid       = document.getElementById("resGrid");
 
   grid.innerHTML = pageItems.map(m => cardHTML(m, false)).join("");
@@ -1060,17 +1289,25 @@ async function doSearch(rawQ, overrideType, tmdbMovieId = null) {
   const grid = document.getElementById("resGrid");
   grid.innerHTML = `<div class="empty"><div class="spinner"></div>검색 중…</div>`;
 
-  const param = searchType === "director"
-    ? `director=${encodeURIComponent(q)}${tmdbMovieId ? `&tmdbMovieId=${tmdbMovieId}` : ""}`
-    : `q=${encodeURIComponent(q)}&searchBy=title`;
+  let param;
+  if (searchType === "director") {
+    param = `director=${encodeURIComponent(q)}${tmdbMovieId ? `&tmdbMovieId=${tmdbMovieId}` : ""}`;
+  } else {
+    param = `q=${encodeURIComponent(q)}&searchBy=${searchType}`;
+  }
 
   try {
     const { results } = await apiGet(`/api/movies?${param}`);
     allSearchResults = results.slice().sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0));
+    filteredResults  = applyFilters(allSearchResults);
     searchPage = 1;
-    document.getElementById("resStat").textContent = `${results.length}편`;
-    if (!results.length) {
-      grid.innerHTML = `<div class="empty">검색 결과가 없습니다.</div>`;
+    updateAdvToggleLabel();
+    const total = allSearchResults.length;
+    const shown = filteredResults.length;
+    document.getElementById("resStat").textContent =
+      shown !== total ? `${shown} / ${total}편` : `${total}편`;
+    if (!filteredResults.length) {
+      grid.innerHTML = `<div class="empty">${total ? "필터 조건에 맞는 결과가 없습니다." : "검색 결과가 없습니다."}</div>`;
       return;
     }
     renderSearchPage();
@@ -1386,6 +1623,7 @@ bindSearch("homeInput", "homeBtn");
 bindSearch("topInput",  "topBtn");
 initSearchTypeToggle("homeSearchType", "homeInput");
 initSearchTypeToggle("topSearchType",  "topInput");
+initAdvPanel();
 
 /* ── 뒤로가기 ──────────────────────────────── */
 document.getElementById("backBtn").addEventListener("click", () => {
