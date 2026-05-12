@@ -114,17 +114,14 @@ async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query
       titleResults = await kmdbFetch(p1b, kmdbKey);
     }
 
+    // 제목 결과 없을 때만 query(전체필드) 폴백 — 있으면 제목 결과만 반환
     if (!titleResults.length) {
       const p2 = new URLSearchParams({ ...base, query: q });
       if (director) p2.set("director", director);
       return kmdbFetch(p2, kmdbKey);
     }
 
-    const p2 = new URLSearchParams({ ...base, query: q });
-    if (director) p2.set("director", director);
-    const queryResults = await kmdbFetch(p2, kmdbKey);
-    const seen = new Set(titleResults.map(r => r.DOCID));
-    return [...titleResults, ...queryResults.filter(r => !seen.has(r.DOCID))];
+    return titleResults;
   }
 
   const p = new URLSearchParams({ ...base, query: q || "" });
