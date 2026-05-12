@@ -61,6 +61,32 @@ async function tmdbSearch(q, tmdbKey, count = 20) {
   return all.slice(0, count);
 }
 
+/* ── TMDB 감독 이름으로 필모그래피 검색 ─────── */
+async function tmdbDirectorSearch(director, tmdbKey, count = 30) {
+  if (!director || !tmdbKey) return [];
+  try {
+    // 1. 인물 검색
+    const personRes = await fetch(
+      `${TMDB_BASE}/search/person?${new URLSearchParams({ api_key: tmdbKey, query: director, language: "ko-KR" })}`
+    );
+    const personData = await personRes.json();
+    const person = (personData.results || [])
+      .find(p => p.known_for_department === "Directing") || personData.results?.[0];
+    if (!person) return [];
+
+    // 2. 해당 인물의 영화 연출작 목록
+    const creditsRes = await fetch(
+      `${TMDB_BASE}/person/${person.id}/movie_credits?${new URLSearchParams({ api_key: tmdbKey, language: "ko-KR" })}`
+    );
+    const creditsData = await creditsRes.json();
+
+    return (creditsData.crew || [])
+      .filter(m => m.job === "Director" && m.original_language === "ko")
+      .sort((a, b) => (b.release_date || "").localeCompare(a.release_date || ""))
+      .slice(0, count);
+  } catch { return []; }
+}
+
 function parseTMDb(item) {
   return {
     id:         `tmdb_${item.id}`,
@@ -240,9 +266,11 @@ module.exports = async function handler(req, res) {
 
   /* ════ 검색 모드 ════════════════════════════ */
   if (q || director) {
-    // 3개 소스 동시 검색 (감독 단독 검색 시 TMDB 스킵)
+    // 3개 소스 동시 검색
+    // - 제목 검색: TMDB 제목검색 + KMDb + KOFIC
+    // - 감독 검색: TMDB 인물→필모그래피 + KMDb 감독검색 + KOFIC 감독검색
     const [tmdbItems, kmdbItems, koficList] = await Promise.all([
-      q ? tmdbSearch(q, tmdbKey, 30) : Promise.resolve([]),
+      q ? tmdbSearch(q, tmdbKey, 30) : tmdbDirectorSearch(director, tmdbKey, 30),
       kmdbQuery(q, director, kmdbKey, 50, searchBy),
       koficSearch(q, director, koficKey),
     ]);
