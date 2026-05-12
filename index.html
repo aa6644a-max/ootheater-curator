@@ -604,6 +604,48 @@ body {
 .stills-scroll img:hover { opacity: 0.85; }
 
 /* ═══════════════════════════════════════
+   LIGHTBOX (스틸컷 크게 보기)
+═══════════════════════════════════════ */
+#lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.92);
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+#lightbox.open { display: flex; }
+#lightbox img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 0 60px rgba(0,0,0,0.8);
+  cursor: default;
+}
+#lightboxClose {
+  position: absolute;
+  top: 20px; right: 24px;
+  background: none; border: none;
+  color: #fff; font-size: 1.8rem;
+  cursor: pointer; opacity: 0.7;
+  line-height: 1;
+}
+#lightboxClose:hover { opacity: 1; }
+
+/* 감독 링크 */
+.director-link {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--ease);
+}
+.director-link:hover { border-color: var(--accent); }
+
+/* ═══════════════════════════════════════
    DIALOG (새 카테고리)
 ═══════════════════════════════════════ */
 .dialog-overlay {
@@ -776,6 +818,12 @@ body {
   </div>
 
 </main>
+
+<!-- ═══════════ LIGHTBOX ═══════════ -->
+<div id="lightbox">
+  <button id="lightboxClose">✕</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
 
 <!-- ═══════════ MODAL ═══════════ -->
 <div class="overlay" id="overlay">
@@ -976,14 +1024,37 @@ function renderSearchPage() {
 }
 
 /* ── 영화 검색 ─────────────────────────────── */
-async function doSearch(rawQ) {
-  const q = rawQ.trim().replace(/\s+/g, " ");
+/* ── 라이트박스 ─────────────────────────────── */
+function openLightbox(src) {
+  document.getElementById("lightboxImg").src = src;
+  document.getElementById("lightbox").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function closeLightbox() {
+  document.getElementById("lightbox").classList.remove("open");
+  document.getElementById("lightboxImg").src = "";
+  document.body.style.overflow = "";
+}
+document.getElementById("lightbox").addEventListener("click", e => {
+  if (e.target.id === "lightbox" || e.target.id === "lightboxClose") closeLightbox();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    closeLightbox();
+  }
+});
+
+async function doSearch(rawQ, overrideType) {
+  const q = (rawQ || "").trim().replace(/\s+/g, " ");
   if (!q) return;
+  if (overrideType) searchType = overrideType;
   activeCatId = null;
   renderSidebar();
   showScreen("results");
 
   document.getElementById("topInput").value = q;
+  // 검색 타입 토글 버튼 UI 동기화
+  document.querySelectorAll(".type-btn").forEach(b => b.classList.toggle("active", b.dataset.type === searchType));
   document.getElementById("resStat").textContent = "";
   document.getElementById("pagination").innerHTML = "";
   const grid = document.getElementById("resGrid");
@@ -1163,8 +1234,13 @@ function openModal(m) {
 
   // 메타
   const actors = (m.actors || []).join(", ") || "—";
+  const directorHTML = m.director
+    ? m.director.split(",").map(d => d.trim()).filter(Boolean)
+        .map(d => `<span class="director-link" data-director="${d.replace(/"/g,"&quot;")}">${d}</span>`)
+        .join(", ")
+    : "—";
   const rows = [
-    ["감독", m.director || "—"],
+    ["감독", directorHTML],
     ["배우", actors],
     ["제작연도", m.year || "—"],
     ["상영시간", m.runtime ? `${m.runtime}분` : "—"],
@@ -1173,6 +1249,14 @@ function openModal(m) {
   ];
   document.getElementById("mMeta").innerHTML = rows.map(([k, v]) =>
     `<span class="meta-k">${k}</span><span class="meta-v">${v}</span>`).join("");
+
+  // 감독 클릭 → 감독 검색
+  document.getElementById("mMeta").querySelectorAll(".director-link").forEach(el => {
+    el.addEventListener("click", () => {
+      closeModal();
+      doSearch(el.dataset.director, "director");
+    });
+  });
 
   // 키워드 태그
   const kws = m.keywords || [];
@@ -1195,8 +1279,11 @@ function openModal(m) {
   const stillEl = document.getElementById("mStills");
   if (stills.length) {
     stillEl.style.display = "";
-    document.getElementById("mStillsRow").innerHTML =
-      stills.map(s => `<img src="${s}" alt="" loading="lazy">`).join("");
+    const row = document.getElementById("mStillsRow");
+    row.innerHTML = stills.map(s => `<img src="${s}" alt="" loading="lazy">`).join("");
+    row.querySelectorAll("img").forEach(img => {
+      img.addEventListener("click", () => openLightbox(img.src));
+    });
   } else {
     stillEl.style.display = "none";
   }
