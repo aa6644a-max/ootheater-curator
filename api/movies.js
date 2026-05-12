@@ -246,6 +246,7 @@ function mergeRecord(tmdb, kmdb, kofic) {
 
   const merged = {
     id:         (c?.id) || (k?.id) || (t?.id) || "",
+    tmdb_id:    t?.tmdb_id || null,
     title:      base.title,
     director:   k?.director || c?.director || "",
     year:       base.year,
