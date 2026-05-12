@@ -1,41 +1,129 @@
 /**
  * Vercel Serverless Function — 영화 검색 프록시
  *
- * 검색 모드 (q 또는 director 있을 때):
- *   KMDb query 풀텍스트 검색 (primary) → KOFIC 교차보완 (secondary)
- *   → KMDb의 전체 필드 검색으로 영화제 키워드·감독·배우까지 커버
+ * 3-소스 병렬 구조:
+ *   TMDB  (primary)   → 포스터(고화질), 줄거리, 배우
+ *   KMDb  (secondary) → 한국 키워드/영화제정보, 스틸컷, 신작 보완
+ *   KOFIC (tertiary)  → 공식 등록정보(개봉상태, 장르, 독립영화 필터)
  *
- * 브라우징 모드 (q/director 없을 때):
- *   KOFIC 연도범위 검색 (primary) → KMDb 상세정보 보완 (secondary)
+ * 필드별 우선순위:
+ *   poster_url : TMDB > KMDb > null
+ *   plot       : TMDB 한국어 > KMDb 한국어
+ *   keywords   : KMDb (영화제 키워드 강점)
+ *   stills     : KMDb
+ *   status     : KOFIC (공식 개봉상태)
+ *   director   : KMDb > KOFIC
+ *   actors     : TMDB > KMDb
  */
 
 const KOFIC_BASE = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieList.json";
 const KMDB_BASE  = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp";
+const TMDB_BASE  = "https://api.themoviedb.org/3";
+const TMDB_IMG   = "https://image.tmdb.org/t/p/w500";
 
-/* ── KMDb !HS !HE 하이라이트 태그 제거 ────────── */
-const clean = s => (s || "").replace(/!HS\s?|!HE\s?/g, "").trim();
-
-/* ── KMDb 썸네일 URL → 원본 해상도 URL 변환 ─── */
+const clean   = s => (s || "").replace(/!HS\s?|!HE\s?/g, "").trim();
 const fullRes = url => url ? url.replace(/\/thm\//g, "/img/") : url;
 
-/* ── KMDb 결과 → 공통 레코드 변환 ─────────────── */
+/* ── 제목 정규화 (중복 판단용) ──────────────── */
+const norm = t => (t || "").toLowerCase().replace(/[\s\-·:：]/g, "");
+
+/* ── 연도 근접 판단 ──────────────────────────── */
+function yearClose(y1, y2, tol = 1) {
+  const a = parseInt(y1) || 0, b = parseInt(y2) || 0;
+  return a > 0 && b > 0 && Math.abs(a - b) <= tol;
+}
+
+/* ══ TMDB ══════════════════════════════════════ */
+
+async function tmdbSearch(q, tmdbKey, count = 20) {
+  if (!q || !tmdbKey) return [];
+  const p = new URLSearchParams({ api_key: tmdbKey, query: q, language: "ko-KR", region: "KR" });
+  try {
+    const res  = await fetch(`${TMDB_BASE}/search/movie?${p}`);
+    const data = await res.json();
+    return (data.results || [])
+      .filter(r => r.original_language === "ko")
+      .slice(0, count);
+  } catch { return []; }
+}
+
+function parseTMDb(item) {
+  return {
+    id:         `tmdb_${item.id}`,
+    tmdb_id:    item.id,
+    title:      item.title || item.original_title || "",
+    director:   "",
+    year:       (item.release_date || "").substring(0, 4),
+    status:     "",
+    type:       "",
+    genre:      "",
+    runtime:    item.runtime || null,
+    poster_url: item.poster_path ? `${TMDB_IMG}${item.poster_path}` : null,
+    plot:       item.overview || "",
+    keywords:   [],
+    actors:     [],
+    stills:     [],
+  };
+}
+
+/* ══ KMDb ══════════════════════════════════════ */
+
+async function kmdbFetch(params, kmdbKey) {
+  params.set("ServiceKey", kmdbKey);
+  params.set("detail",     "Y");
+  params.set("collection", "kmdb_new2");
+  try {
+    const res  = await fetch(`${KMDB_BASE}?${params}`);
+    const data = await res.json();
+    return data?.Data?.[0]?.Result || [];
+  } catch { return []; }
+}
+
+async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query") {
+  const base = { startCount: "0", listCount: String(listCount) };
+
+  if (director && !q) {
+    return kmdbFetch(new URLSearchParams({ ...base, director }), kmdbKey);
+  }
+
+  if (searchBy === "title" && q) {
+    const p1 = new URLSearchParams({ ...base, title: q });
+    if (director) p1.set("director", director);
+    const titleResults = await kmdbFetch(p1, kmdbKey);
+
+    if (!titleResults.length) {
+      const p2 = new URLSearchParams({ ...base, query: q });
+      if (director) p2.set("director", director);
+      return kmdbFetch(p2, kmdbKey);
+    }
+
+    const p2 = new URLSearchParams({ ...base, query: q });
+    if (director) p2.set("director", director);
+    const queryResults = await kmdbFetch(p2, kmdbKey);
+    const seen = new Set(titleResults.map(r => r.DOCID));
+    return [...titleResults, ...queryResults.filter(r => !seen.has(r.DOCID))];
+  }
+
+  const p = new URLSearchParams({ ...base, query: q || "" });
+  if (director) p.set("director", director);
+  return kmdbFetch(p, kmdbKey);
+}
+
 function parseKMDb(item, koficMatch = null) {
   const directorList = item.directors?.director || [];
   const director = directorList.map(d => clean(d.directorNm)).filter(Boolean).join(", ");
-
+  const rt = parseInt(item.runtime);
   const posters   = item.posters || "";
+  const stllsRaw  = item.stlls  || "";
   const plots     = item.plots?.plot || [];
   const kwRaw     = item.keywords || "";
-  const stllsRaw  = item.stlls || "";
   const actorList = item.actors?.actor || [];
-  const rt        = parseInt(item.runtime);
-
-  const plotText = plots.find(p => p.plotLang === "한국어")?.plotText || plots[0]?.plotText || "";
+  const plotText  = plots.find(p => p.plotLang === "한국어")?.plotText || plots[0]?.plotText || "";
 
   return {
     id:         koficMatch?.movieCd || item.DOCID || item.movieId || "",
     title:      clean(item.title),
-    director:   director,
+    director,
     year:       item.prodYear || "",
     status:     koficMatch?.prdtStatNm || "",
     type:       koficMatch?.typeNm    || "",
@@ -49,7 +137,20 @@ function parseKMDb(item, koficMatch = null) {
   };
 }
 
-/* ── KOFIC 결과 → 공통 레코드 변환 ────────────── */
+/* ══ KOFIC ═════════════════════════════════════ */
+
+async function koficSearch(q, director, koficKey) {
+  const p = new URLSearchParams({ key: koficKey, curPage: "1", itemPerPage: "20" });
+  if (q)        p.set("movieNm",    q);
+  if (director) p.set("directorNm", director);
+  try {
+    const res  = await fetch(`${KOFIC_BASE}?${p}`);
+    const data = await res.json();
+    return (data.movieListResult?.movieList || [])
+      .filter(m => (m.repNationNm || "").includes("한국"));
+  } catch { return []; }
+}
+
 function parseKOFIC(m) {
   return {
     id:         m.movieCd || "",
@@ -68,146 +169,108 @@ function parseKOFIC(m) {
   };
 }
 
-/* ── KMDb 단일 검색 ──────────────────────────── */
-async function kmdbFetch(params, kmdbKey) {
-  params.set("ServiceKey", kmdbKey);
-  params.set("detail",     "Y");
-  params.set("collection", "kmdb_new2");
-  try {
-    const res  = await fetch(`${KMDB_BASE}?${params}`);
-    const data = await res.json();
-    return data?.Data?.[0]?.Result || [];
-  } catch {
-    return [];
-  }
+/* ══ 소스 병합 ══════════════════════════════════
+ *  tmdb  → 포스터·줄거리·배우 우선
+ *  kmdb  → 키워드·스틸컷·감독·한국어 보완
+ *  kofic → id·status·type·genre 공식값
+ * ════════════════════════════════════════════ */
+function mergeRecord(tmdb, kmdb, kofic) {
+  const t = tmdb ? parseTMDb(tmdb) : null;
+  const k = kmdb ? parseKMDb(kmdb, kofic) : null;
+  const c = kofic ? parseKOFIC(kofic) : null;
+
+  // 기본 레코드: 있는 소스 중 우선순위대로
+  const base = t || k || c;
+
+  const merged = {
+    id:         (c?.id) || (k?.id) || (t?.id) || "",
+    title:      base.title,
+    director:   k?.director || c?.director || "",
+    year:       base.year,
+    status:     c?.status || k?.status || "",
+    type:       c?.type   || k?.type   || "",
+    genre:      k?.genre  || c?.genre  || "",
+    runtime:    t?.runtime ?? k?.runtime ?? null,
+    poster_url: t?.poster_url || k?.poster_url || null,
+    plot:       (t?.plot && t.plot.length > 10 ? t.plot : "") || k?.plot || "",
+    keywords:   k?.keywords?.length ? k.keywords : [],
+    actors:     t?.actors?.length   ? t.actors   : (k?.actors || []),
+    stills:     k?.stills || [],
+  };
+
+  return merged;
 }
 
-/* ── KMDb 검색 (title 우선, 없으면 query 폴백) ── */
-async function kmdbQuery(q, director, kmdbKey, listCount = 20, searchBy = "query") {
-  const base = { startCount: "0", listCount: String(listCount) };
-
-  if (director && !q) {
-    // 감독 검색
-    const p = new URLSearchParams({ ...base, director });
-    return kmdbFetch(p, kmdbKey);
-  }
-
-  if (searchBy === "title" && q) {
-    // 1차: title 파라미터로 정확 검색
-    const p1 = new URLSearchParams({ ...base, title: q });
-    if (director) p1.set("director", director);
-    const titleResults = await kmdbFetch(p1, kmdbKey);
-
-    // 2차: title 결과 없으면 query(전체필드)로 재시도
-    if (!titleResults.length) {
-      const p2 = new URLSearchParams({ ...base, query: q });
-      if (director) p2.set("director", director);
-      return kmdbFetch(p2, kmdbKey);
-    }
-
-    // title 결과 있으면 query도 병렬 실행 후 합산 (title 결과 먼저)
-    const p2 = new URLSearchParams({ ...base, query: q });
-    if (director) p2.set("director", director);
-    const queryResults = await kmdbFetch(p2, kmdbKey);
-
-    // title 결과를 앞에, query 추가분을 뒤에 (DOCID 기준 중복 제거)
-    const seen = new Set(titleResults.map(r => r.DOCID));
-    const extra = queryResults.filter(r => !seen.has(r.DOCID));
-    return [...titleResults, ...extra];
-  }
-
-  // query 모드 (기본)
-  const p = new URLSearchParams({ ...base, query: q });
-  if (director) p.set("director", director);
-  return kmdbFetch(p, kmdbKey);
-}
-
-/* ── KOFIC 제목 검색 (보완용) ────────────────── */
-async function koficSearch(q, director, koficKey) {
-  const params = new URLSearchParams({
-    key:         koficKey,
-    curPage:     "1",
-    itemPerPage: "20",
-  });
-  if (q)        params.set("movieNm",    q);
-  if (director) params.set("directorNm", director);
-
-  try {
-    const res  = await fetch(`${KOFIC_BASE}?${params}`);
-    const data = await res.json();
-    return (data.movieListResult?.movieList || [])
-      .filter(m => (m.repNationNm || "").includes("한국"));
-  } catch {
-    return [];
-  }
-}
-
-/* ── 제목+연도로 KOFIC 매칭 ─────────────────── */
-function matchKofic(kmdbItem, koficList) {
-  const kmdbTitle = (kmdbItem.title || "").replace(/!HS|!HE/g, "").trim();
-  const kmdbYear  = parseInt(kmdbItem.prodYear) || 0;
-  return koficList.find(k => {
-    const titleMatch = k.movieNm?.trim() === kmdbTitle;
-    const yearMatch  = Math.abs(parseInt(k.prdtYear) - kmdbYear) <= 1;
-    return titleMatch && yearMatch;
-  }) || null;
-}
-
-/* ── 핸들러 ─────────────────────────────────── */
+/* ══ 핸들러 ════════════════════════════════════ */
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
 
   const {
     q = "", director = "",
     page = "1", yearFrom = "", yearTo = "", genre = "",
-    searchBy = "query",   // "title" | "query"
+    searchBy = "query",
   } = req.query;
 
   const koficKey = process.env.KOFIC_API_KEY || "";
   const kmdbKey  = process.env.KMDB_API_KEY  || "";
+  const tmdbKey  = process.env.TMDB_API_KEY  || "";
 
-  /* ════ 검색 모드: KMDb primary ════════════════ */
+  /* ════ 검색 모드 ════════════════════════════ */
   if (q || director) {
-    // KMDb 풀텍스트 검색과 KOFIC 검색을 병렬 실행
-    const [kmdbItems, koficList] = await Promise.all([
+    // 3개 소스 동시 검색 (감독 단독 검색 시 TMDB 스킵)
+    const [tmdbItems, kmdbItems, koficList] = await Promise.all([
+      q ? tmdbSearch(q, tmdbKey, 30) : Promise.resolve([]),
       kmdbQuery(q, director, kmdbKey, 50, searchBy),
       koficSearch(q, director, koficKey),
     ]);
 
-    if (!kmdbItems.length && !koficList.length) {
-      return res.json({ results: [], total: 0, page: 1 });
-    }
-
-    // KMDb 결과 기반으로 레코드 구성 (KOFIC으로 공식 정보 보완)
     const seen    = new Set();
     const results = [];
 
-    for (const item of kmdbItems) {
-      const koficMatch = matchKofic(item, koficList);
-      const record     = parseKMDb(item, koficMatch);
+    // 1순위: TMDB 결과 기준 merge
+    for (const tmdb of tmdbItems) {
+      const tYear  = (tmdb.release_date || "").substring(0, 4);
+      const tTitle = tmdb.title || tmdb.original_title || "";
+
+      const kmdb  = kmdbItems.find(i => norm(clean(i.title)) === norm(tTitle) && yearClose(i.prodYear, tYear));
+      const kofic = koficList.find(i => norm(i.movieNm)      === norm(tTitle) && yearClose(i.prdtYear, tYear));
+
+      const record = mergeRecord(tmdb, kmdb || null, kofic || null);
       if (!record.title) continue;
-      const key = `${record.title}__${record.year}`;
+      const key = `${norm(record.title)}__${record.year}`;
       if (seen.has(key)) continue;
       seen.add(key);
       results.push(record);
     }
 
-    // KMDb에 없는 KOFIC 결과도 추가 (제목이 겹치지 않는 것만)
-    for (const m of koficList) {
-      const key = `${m.movieNm?.trim()}__${m.prdtYear}`;
+    // 2순위: KMDb 전용 결과 (TMDB에 없는 한국 독립신작)
+    for (const kmdb of kmdbItems) {
+      const kTitle = clean(kmdb.title);
+      const key    = `${norm(kTitle)}__${kmdb.prodYear}`;
+      if (seen.has(key)) continue;
+      const kofic  = koficList.find(i => norm(i.movieNm) === norm(kTitle) && yearClose(i.prdtYear, kmdb.prodYear));
+      const record = mergeRecord(null, kmdb, kofic || null);
+      if (!record.title) continue;
+      seen.add(key);
+      results.push(record);
+    }
+
+    // 3순위: KOFIC 전용 결과 (위 둘 다 없는 경우)
+    for (const kofic of koficList) {
+      const key = `${norm(kofic.movieNm)}__${kofic.prdtYear}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      results.push(parseKOFIC(m));
+      results.push(parseKOFIC(kofic));
     }
 
     return res.json({ results, total: results.length, page: 1 });
   }
 
-  /* ════ 브라우징 모드: KOFIC primary ═══════════ */
+  /* ════ 브라우징 모드 ════════════════════════ */
   const koficParams = new URLSearchParams({
-    key:         koficKey,
-    curPage:     page,
-    itemPerPage: "20",
+    key:           koficKey,
+    curPage:       page,
+    itemPerPage:   "20",
     prdtStartYear: yearFrom || "2020",
     prdtEndYear:   yearTo   || "2026",
   });
@@ -215,30 +278,31 @@ module.exports = async function handler(req, res) {
 
   let koficMovies = [], total = 0;
   try {
-    const koficRes  = await fetch(`${KOFIC_BASE}?${koficParams}`);
-    const koficData = await koficRes.json();
-    const all       = koficData.movieListResult?.movieList || [];
-    total           = parseInt(koficData.movieListResult?.totCnt || "0");
-    koficMovies     = all.filter(m => (m.repNationNm || "").includes("한국"));
+    const r    = await fetch(`${KOFIC_BASE}?${koficParams}`);
+    const data = await r.json();
+    const all  = data.movieListResult?.movieList || [];
+    total       = parseInt(data.movieListResult?.totCnt || "0");
+    koficMovies = all.filter(m => (m.repNationNm || "").includes("한국"));
   } catch (err) {
     return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
   }
 
-  // KMDb로 상세정보 보완
+  // TMDB + KMDb 병렬 보강
   const results = await Promise.all(
     koficMovies.map(async (m) => {
-      const record = parseKOFIC(m);
-      if (!kmdbKey || !record.title) return record;
-      try {
-        const items = await kmdbQuery(record.title, record.director, kmdbKey, 3);
-        const targetYear = parseInt(record.year) || 2026;
-        for (const item of items) {
-          if (Math.abs(parseInt(item.prodYear) - targetYear) > 1) continue;
-          const enriched = parseKMDb(item, m);
-          return { ...enriched, id: record.id, status: record.status, type: record.type };
-        }
-      } catch { /* 무시 */ }
-      return record;
+      const base = parseKOFIC(m);
+      if (!base.title) return base;
+
+      const [tmdbItems, kmdbItems] = await Promise.all([
+        tmdbSearch(base.title, tmdbKey, 3),
+        kmdbQuery(base.title, base.director, kmdbKey, 3),
+      ]);
+
+      const targetYear = parseInt(base.year) || 2026;
+      const tmdb = tmdbItems.find(t => yearClose((t.release_date || "").substring(0, 4), targetYear)) || null;
+      const kmdb = kmdbItems.find(i => yearClose(i.prodYear, targetYear)) || null;
+
+      return mergeRecord(tmdb, kmdb, m);
     })
   );
 
