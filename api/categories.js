@@ -11,6 +11,42 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
+const TMDB_KEY     = process.env.TMDB_API_KEY || "";
+const TMDB_IMG     = "https://image.tmdb.org/t/p/w500";
+
+/* ── poster 없는 영화 TMDB로 보강 + Supabase 업데이트 ── */
+async function enrichRow(row, sbHeaders) {
+  const m = row.movie_data || {};
+  if (m.poster_url || !TMDB_KEY || !m.title) return m;
+
+  try {
+    const p = new URLSearchParams({ api_key: TMDB_KEY, query: m.title, language: "ko-KR", region: "KR" });
+    const res  = await fetch(`https://api.themoviedb.org/3/search/movie?${p}`);
+    const data = await res.json();
+    const match = (data.results || [])
+      .filter(r => r.original_language === "ko")
+      .find(r => Math.abs(parseInt((r.release_date || "").substring(0, 4)) - parseInt(m.year)) <= 1);
+
+    if (!match) return m;
+
+    const enriched = {
+      ...m,
+      poster_url: match.poster_path ? `${TMDB_IMG}${match.poster_path}` : m.poster_url,
+      plot:       (!m.plot && match.overview) ? match.overview : m.plot,
+    };
+
+    // Supabase에 업데이트 (다음 로드부터 캐시)
+    fetch(`${SUPABASE_URL}/rest/v1/category_movies?id=eq.${row.id}`, {
+      method:  "PATCH",
+      headers: { ...sbHeaders, Prefer: "return=minimal" },
+      body:    JSON.stringify({ movie_data: enriched }),
+    }).catch(() => {});
+
+    return enriched;
+  } catch {
+    return m;
+  }
+}
 
 const sbHeaders = {
   apikey:        SUPABASE_KEY,
@@ -31,11 +67,18 @@ module.exports = async function handler(req, res) {
     // ── GET ──────────────────────────────────────
     if (req.method === "GET") {
       if (catId) {
-        const r = await fetch(
+        const r    = await fetch(
           `${SUPABASE_URL}/rest/v1/category_movies?category_id=eq.${catId}&order=added_at.asc`,
           { headers: sbHeaders }
         );
-        return res.status(r.status).json(await r.json());
+        const rows = await r.json();
+        if (!r.ok) return res.status(r.status).json(rows);
+
+        // poster 없는 항목 TMDB로 보강 (병렬)
+        const enrichedRows = await Promise.all(
+          rows.map(async row => ({ ...row, movie_data: await enrichRow(row, sbHeaders) }))
+        );
+        return res.status(200).json(enrichedRows);
       }
 
       // 카테고리 목록 + 영화 수
