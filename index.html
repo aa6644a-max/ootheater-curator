@@ -500,6 +500,8 @@ body {
 .movie-grid::-webkit-scrollbar-thumb { background: var(--border); }
 
 /* ── 리스트 뷰 ── */
+.card-info { display: none; }  /* 그리드 뷰에서는 숨김 */
+
 .movie-grid.list-view {
   grid-template-columns: 1fr;
   gap: 6px;
@@ -509,28 +511,38 @@ body {
   flex-direction: row;
   height: 76px;
 }
-/* card-poster를 position:static으로 바꿔 card-body가 .card 기준으로 절대위치 잡히게 함 */
 .movie-grid.list-view .card-poster {
   aspect-ratio: unset;
   width: 52px;
   min-width: 52px;
   height: 76px;
   flex-shrink: 0;
-  position: static;
 }
-.movie-grid.list-view .card-body {
-  position: absolute;
-  left: 52px;
-  top: 0; bottom: 0; right: 0;
-  padding: 0 14px;
-  background: none;
+.movie-grid.list-view .card-body { display: none; }  /* 그라디언트 오버레이 숨김 */
+.movie-grid.list-view .card-info {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
+  padding: 0 14px;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
 }
-.movie-grid.list-view .card-title { color: var(--text); font-size: 0.88rem; }
-.movie-grid.list-view .card-meta  { color: var(--muted); }
+.movie-grid.list-view .card-info .card-title {
+  color: var(--text);
+  font-size: 0.88rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0;
+}
+.movie-grid.list-view .card-info .card-meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ── 뷰 토글 버튼 ── */
 .view-toggle {
@@ -2104,14 +2116,20 @@ function cardHTML(m, inCat, rowId = "") {
     ? `<img src="${thumbSrc}" alt="" loading="lazy" data-title="${titleAttr}" onerror="this.outerHTML=posterPlaceholder(this.dataset.title)">`
     : posterPlaceholder(m.title);
   const rm = inCat ? `<button class="card-rm" data-rowid="${rowId}">✕</button>` : "";
+  const title = m.title || "제목 미상";
+  const meta  = `${m.director || "—"} · ${m.year || "—"}`;
   return `
 <div class="card" data-id="${m.id}">
   <div class="card-poster">
     ${img}${rm}
     <div class="card-body">
-      <div class="card-title">${m.title || "제목 미상"}</div>
-      <div class="card-meta">${m.director || "—"} · ${m.year || "—"}</div>
+      <div class="card-title">${title}</div>
+      <div class="card-meta">${meta}</div>
     </div>
+  </div>
+  <div class="card-info">
+    <div class="card-title">${title}</div>
+    <div class="card-meta">${meta}</div>
   </div>
 </div>`;
 }
@@ -2591,10 +2609,13 @@ initHomeFilters();
 /* ── 뷰 토글 ───────────────────────────────── */
 document.getElementById("viewToggle").addEventListener("click", e => {
   const btn = e.target.closest(".vt-btn");
-  if (!btn) return;
+  if (!btn || btn.dataset.view === viewMode) return;
   viewMode = btn.dataset.view;
   document.querySelectorAll(".vt-btn").forEach(b => b.classList.toggle("active", b.dataset.view === viewMode));
   document.querySelectorAll(".movie-grid").forEach(g => g.classList.toggle("list-view", viewMode === "list"));
+  // 새 카드 HTML(card-info 포함)로 재렌더링
+  if (document.getElementById("resultsScreen").style.display !== "none") renderSearchPage();
+  else if (document.getElementById("catScreen").style.display !== "none") renderCatPage();
 });
 
 /* ── 뒤로가기 ──────────────────────────────── */
