@@ -2004,7 +2004,12 @@ document.addEventListener("keydown", e => {
 
 async function doSearch(rawQ, overrideType, tmdbMovieId = null) {
   const q = (rawQ || "").trim().replace(/\s+/g, " ");
-  if (!q) return;
+  if (!q) {
+    // 검색어 없어도 연도 필터가 있으면 브라우징 모드로 전환
+    if (filterYearFrom || filterYearTo) { runBrowse(1); return; }
+    toast("검색어를 입력하거나 연도 필터를 설정해주세요", "err");
+    return;
+  }
   if (overrideType) searchType = overrideType;
   activeCatId = null;
   renderSidebar();
