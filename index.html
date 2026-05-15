@@ -504,17 +504,22 @@ body {
 
 .movie-grid.list-view {
   grid-template-columns: 1fr;
+  grid-auto-rows: 76px;   /* 행 높이 명시적으로 고정 */
   gap: 6px;
   padding: 12px 20px 20px;
 }
 .movie-grid.list-view .card {
   flex-direction: row;
   height: 76px;
+  max-height: 76px;
+  overflow: hidden;
+  transform: none !important;  /* hover 시 translateY 겹침 방지 */
 }
 .movie-grid.list-view .card-poster {
   aspect-ratio: unset;
   width: 52px;
   min-width: 52px;
+  max-width: 52px;
   height: 76px;
   flex-shrink: 0;
 }
