@@ -205,20 +205,52 @@ function parseKMDb(item, koficMatch = null) {
   const actorList = item.actors?.actor || [];
   const plotText  = plots.find(p => p.plotLang === "한국어")?.plotText || plots[0]?.plotText || "";
 
+  const titleEng    = (item.titleEng || item.titleOrg || "").trim();
+  const ratingGrade = clean(item.rating || "");
+
+  const companyRaw = item.companies?.company || [];
+  const companies  = (Array.isArray(companyRaw) ? companyRaw : [companyRaw])
+    .map(c => clean(c.companyNm || "")).filter(Boolean);
+
+  const awardsRaw = item.awards?.award || [];
+  const awardsArr = Array.isArray(awardsRaw) ? awardsRaw : [awardsRaw];
+  const awards = awardsArr
+    .map(a => ({
+      festival: clean(a.awardsFestivalNm || ""),
+      year:     a.awardsYear || "",
+      title:    clean(a.awardNm || ""),
+      person:   clean(a.awardsStnm || ""),
+    }))
+    .filter(a => a.festival || a.title);
+
+  const staffRaw = item.staffs?.staff || [];
+  const staffArr = Array.isArray(staffRaw) ? staffRaw : [staffRaw];
+  const staff = staffArr.slice(0, 12)
+    .map(s => ({
+      role: clean(s.staffRoleGroup || s.staffRole || ""),
+      name: clean(s.staffNm || ""),
+    }))
+    .filter(s => s.name);
+
   return {
-    id:         koficMatch?.movieCd || item.DOCID || item.movieId || "",
-    title:      clean(item.title),
+    id:          koficMatch?.movieCd || item.DOCID || item.movieId || "",
+    title:       clean(item.title),
     director,
-    year:       item.prodYear || "",
-    status:     koficMatch?.prdtStatNm || "",
-    type:       koficMatch?.typeNm    || "",
-    genre:      clean((item.genre || koficMatch?.repGenreNm || "").split(",")[0]),
-    runtime:    isNaN(rt) ? null : rt,
-    poster_url: posters ? fullRes(posters.split("|")[0]) : null,
-    plot:       clean(plotText),
-    keywords:   kwRaw ? kwRaw.split("|").map(k => clean(k)).filter(Boolean) : [],
-    actors:     actorList.slice(0, 8).map(a => clean(a.actorNm)).filter(Boolean),
-    stills:     stllsRaw ? stllsRaw.split("|").slice(0, 8).filter(Boolean).map(fullRes) : [],
+    year:        item.prodYear || "",
+    status:      koficMatch?.prdtStatNm || "",
+    type:        koficMatch?.typeNm    || "",
+    genre:       clean((item.genre || koficMatch?.repGenreNm || "").split(",")[0]),
+    runtime:     isNaN(rt) ? null : rt,
+    poster_url:  posters ? fullRes(posters.split("|")[0]) : null,
+    plot:        clean(plotText),
+    keywords:    kwRaw ? kwRaw.split("|").map(k => clean(k)).filter(Boolean) : [],
+    actors:      actorList.slice(0, 8).map(a => clean(a.actorNm)).filter(Boolean),
+    stills:      stllsRaw ? stllsRaw.split("|").slice(0, 8).filter(Boolean).map(fullRes) : [],
+    titleEng,
+    ratingGrade,
+    companies,
+    awards,
+    staff,
   };
 }
 
@@ -268,21 +300,25 @@ function mergeRecord(tmdb, kmdb, kofic) {
   const base = t || k || c;
 
   const merged = {
-    id:         (c?.id) || (k?.id) || (t?.id) || "",
-    tmdb_id:    t?.tmdb_id || null,
-    title:      base.title,
-    director:   k?.director || c?.director || "",
-    year:       base.year,
-    status:     c?.status || k?.status || "",
-    type:       c?.type   || k?.type   || "",
-    genre:      k?.genre  || c?.genre  || "",
-    runtime:    t?.runtime ?? k?.runtime ?? null,
-    poster_url: t?.poster_url || k?.poster_url || null,
-    plot:       (t?.plot && t.plot.length > 10 ? t.plot : "") || k?.plot || "",
-    keywords:   k?.keywords?.length ? k.keywords : [],
-    actors:     t?.actors?.length   ? t.actors   : (k?.actors || []),
-    // KMDb 스틸컷 우선, 없으면 TMDB backdrop 사용, 둘 다 합산
-    stills:     [...(k?.stills || []), ...(t?.backdrop ? [t.backdrop] : [])],
+    id:          (c?.id) || (k?.id) || (t?.id) || "",
+    tmdb_id:     t?.tmdb_id || null,
+    title:       base.title,
+    director:    k?.director || c?.director || "",
+    year:        base.year,
+    status:      c?.status || k?.status || "",
+    type:        c?.type   || k?.type   || "",
+    genre:       k?.genre  || c?.genre  || "",
+    runtime:     t?.runtime ?? k?.runtime ?? null,
+    poster_url:  t?.poster_url || k?.poster_url || null,
+    plot:        (t?.plot && t.plot.length > 10 ? t.plot : "") || k?.plot || "",
+    keywords:    k?.keywords?.length ? k.keywords : [],
+    actors:      t?.actors?.length   ? t.actors   : (k?.actors || []),
+    stills:      [...(k?.stills || []), ...(t?.backdrop ? [t.backdrop] : [])],
+    titleEng:    k?.titleEng    || "",
+    ratingGrade: k?.ratingGrade || "",
+    companies:   k?.companies?.length ? k.companies : [],
+    awards:      k?.awards?.length    ? k.awards    : [],
+    staff:       k?.staff?.length     ? k.staff     : [],
   };
 
   return merged;

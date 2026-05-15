@@ -499,6 +499,58 @@ body {
 .movie-grid::-webkit-scrollbar { width: 4px; }
 .movie-grid::-webkit-scrollbar-thumb { background: var(--border); }
 
+/* ── 리스트 뷰 ── */
+.movie-grid.list-view {
+  grid-template-columns: 1fr;
+  gap: 6px;
+  padding: 12px 20px 20px;
+}
+.movie-grid.list-view .card {
+  flex-direction: row;
+  height: 76px;
+}
+.movie-grid.list-view .card-poster {
+  aspect-ratio: unset;
+  width: 52px;
+  min-width: 52px;
+  height: 76px;
+  flex-shrink: 0;
+}
+.movie-grid.list-view .card-body {
+  left: 52px;
+  top: 0; bottom: 0; right: 0;
+  padding: 0 14px;
+  background: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+}
+.movie-grid.list-view .card-title { color: var(--text); font-size: 0.88rem; }
+.movie-grid.list-view .card-meta  { color: var(--muted); }
+
+/* ── 뷰 토글 버튼 ── */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.vt-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 6px 9px;
+  cursor: pointer;
+  transition: all var(--ease);
+  display: flex;
+  align-items: center;
+}
+.vt-btn + .vt-btn { border-left: 1px solid var(--border); }
+.vt-btn:hover { color: var(--text); }
+.vt-btn.active { background: var(--surface2); color: var(--accent); }
+
 .pagination {
   display: flex;
   align-items: center;
@@ -951,6 +1003,141 @@ body {
 }
 
 /* ═══════════════════════════════════════
+   DETAIL PAGE
+═══════════════════════════════════════ */
+#detailScreen {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#detailScreen::-webkit-scrollbar { width: 4px; }
+#detailScreen::-webkit-scrollbar-thumb { background: var(--border); }
+
+.detail-back-bar {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+.detail-back-title {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-content {
+  padding: 28px 28px 40px;
+  max-width: 920px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.detail-hero {
+  display: flex;
+  gap: 28px;
+  margin-bottom: 28px;
+}
+.detail-poster {
+  width: 190px;
+  min-width: 190px;
+  aspect-ratio: 2/3;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.detail-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.detail-info { flex: 1; min-width: 0; }
+.detail-title-ko {
+  font-size: 1.75rem;
+  font-weight: 900;
+  line-height: 1.25;
+  margin-bottom: 5px;
+}
+.detail-title-en {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  margin-bottom: 10px;
+}
+.detail-rating-badge {
+  display: inline-block;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 2px 8px;
+  font-size: 0.62rem;
+  font-family: var(--mono);
+  border-radius: 2px;
+  margin-bottom: 14px;
+}
+.detail-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 18px;
+}
+
+.detail-section {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.detail-awards {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 10px;
+}
+.award-item {
+  padding: 9px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.award-festival {
+  color: var(--accent2);
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  margin-bottom: 1px;
+}
+.award-name { font-weight: 600; color: var(--text); }
+.award-person { color: var(--muted); font-family: var(--mono); font-size: 0.7rem; }
+
+.detail-staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.staff-item { font-size: 0.76rem; }
+.staff-role { color: var(--muted); font-family: var(--mono); font-size: 0.62rem; display: block; }
+.staff-name { color: var(--text); }
+
+.detail-companies {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 8px;
+  font-family: var(--mono);
+}
+
+/* ═══════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════ */
 
@@ -967,9 +1154,10 @@ body {
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
     padding: 12px 12px 80px;
-    flex: none;
-    height: auto;
-    overflow-y: visible;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .main {
@@ -1031,6 +1219,13 @@ body {
   }
   .modal-hero { flex-direction: column; padding: 16px; gap: 14px; }
   .modal-poster { width: 110px; min-width: 110px; }
+
+  /* 디테일 페이지 모바일 */
+  .detail-content { padding: 16px 16px 80px; }
+  .detail-hero { flex-direction: column; gap: 14px; }
+  .detail-poster { width: 110px; min-width: 110px; }
+  .detail-title-ko { font-size: 1.3rem; }
+  .detail-staff-grid { grid-template-columns: repeat(2, 1fr); }
 
   /* 토스트: 하단 탭바 위 */
   .toast { bottom: 70px; right: 12px; left: 12px; text-align: center; }
@@ -1243,6 +1438,14 @@ body {
         <button id="topBtn">검색</button>
       </div>
       <button class="adv-toggle" id="advToggle">필터 ▾</button>
+      <div class="view-toggle" id="viewToggle">
+        <button class="vt-btn active" data-view="grid" title="그리드">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6"/><rect x="8" y="0" width="6" height="6"/><rect x="0" y="8" width="6" height="6"/><rect x="8" y="8" width="6" height="6"/></svg>
+        </button>
+        <button class="vt-btn" data-view="list" title="리스트">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2"/><rect x="0" y="6" width="14" height="2"/><rect x="0" y="11" width="14" height="2"/></svg>
+        </button>
+      </div>
       <div class="results-stat" id="resStat"></div>
     </div>
     <div class="adv-panel" id="advPanel">
@@ -1319,6 +1522,15 @@ body {
     </div>
     <div class="movie-grid" id="catGrid"></div>
     <div class="pagination" id="catPagination"></div>
+  </div>
+
+  <!-- 영화 상세 화면 -->
+  <div id="detailScreen">
+    <div class="detail-back-bar">
+      <button class="btn-back" id="detailBackBtn">← 뒤로</button>
+      <div class="detail-back-title" id="detailBackTitle"></div>
+    </div>
+    <div class="detail-content" id="detailContent"></div>
   </div>
 
 </main>
@@ -1434,6 +1646,8 @@ const PAGE_SIZE      = 12;
 let browseMode       = false; // 연도 브라우징 모드 여부
 let browseTotalCount = 0;     // 서버 전체 건수
 let browsePageNum    = 1;     // 현재 서버 페이지
+let viewMode         = "grid"; // "grid" | "list"
+let detailFromScreen = "results"; // 상세 페이지 진입 전 화면
 
 /* ── 유틸 ──────────────────────────────────── */
 let toastTimer;
@@ -1449,9 +1663,10 @@ function showScreen(name) {
   document.getElementById("homeScreen").style.display    = name === "home"    ? "" : "none";
   document.getElementById("resultsScreen").style.display = name === "results" ? "flex" : "none";
   document.getElementById("catScreen").style.display     = name === "cat"     ? "flex" : "none";
+  document.getElementById("detailScreen").style.display  = name === "detail"  ? "flex" : "none";
   const homeBtn = document.getElementById("mnavHome");
   const catBtn  = document.getElementById("mnavCat");
-  if (homeBtn) homeBtn.classList.toggle("active", name === "home" || name === "results");
+  if (homeBtn) homeBtn.classList.toggle("active", name === "home" || name === "results" || name === "detail");
   if (catBtn)  catBtn.classList.toggle("active", name === "cat");
 }
 
@@ -1544,9 +1759,11 @@ function closeMobileCatSheet() {
 }
 
 function updateCatSel() {
-  document.getElementById("mCatSel").innerHTML =
-    `<option value="">카테고리 선택…</option>` +
+  const opts = `<option value="">카테고리 선택…</option>` +
     categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+  document.getElementById("mCatSel").innerHTML = opts;
+  const detailSel = document.getElementById("detailCatSel");
+  if (detailSel) detailSel.innerHTML = opts;
 }
 
 /* ── 필터 적용 ──────────────────────────────── */
@@ -1901,7 +2118,7 @@ function bindCards(grid, movies, inCat, rows = [], catId = null) {
   grid.querySelectorAll(".card").forEach((el, i) => {
     el.addEventListener("click", e => {
       if (e.target.closest(".card-rm")) return;
-      openModal(movies[i]);
+      showDetail(movies[i]);
     });
 
     const rm = el.querySelector(".card-rm");
@@ -2029,6 +2246,188 @@ function closeModal() {
   document.getElementById("overlay").classList.remove("open");
   document.body.style.overflow = "";
   currentMovie = null;
+}
+
+/* ── 영화 상세 페이지 ───────────────────────── */
+function showDetail(m) {
+  currentMovie = m;
+  // 어느 화면에서 진입했는지 기억
+  if (document.getElementById("catScreen").style.display !== "none") {
+    detailFromScreen = "cat";
+  } else if (document.getElementById("resultsScreen").style.display !== "none") {
+    detailFromScreen = "results";
+  } else {
+    detailFromScreen = "home";
+  }
+
+  document.getElementById("detailBackTitle").textContent = m.title || "";
+
+  // 포스터
+  const posterSrc  = m.poster_url || (m.stills && m.stills[0]) || "";
+  const titleAttr  = (m.title || "").replace(/"/g, "&quot;");
+  const posterHTML = posterSrc
+    ? `<img src="${posterSrc}" alt="" data-title="${titleAttr}" onerror="this.outerHTML=posterPlaceholder(this.dataset.title)">`
+    : posterPlaceholder(m.title);
+
+  // 감독 링크
+  const directorHTML = m.director
+    ? m.director.split(",").map(d => d.trim()).filter(Boolean)
+        .map(d => `<span class="director-link" data-director="${d.replace(/"/g,"&quot;")}">${d}</span>`)
+        .join(", ")
+    : "—";
+
+  // 배우
+  const actorsText = (m.actors || []).join(", ") || "—";
+
+  // 메타 행
+  const metaRows = [
+    ["감독",    directorHTML],
+    ["배우",    actorsText],
+    ["제작연도", m.year    || "—"],
+    ["상영시간", m.runtime ? `${m.runtime}분` : "—"],
+    ["장르",    m.genre   || "—"],
+    ["상태",    m.status  || "—"],
+  ];
+  const metaHTML = metaRows.map(([k, v]) =>
+    `<span class="meta-k">${k}</span><span class="meta-v">${v}</span>`).join("");
+
+  // 키워드
+  const kws = m.keywords || [];
+  const tagsHTML = kws.map(k => {
+    const fest = FESTIVAL_WORDS.some(f => k.toLowerCase().includes(f.toLowerCase()));
+    return `<span class="tag${fest ? " festival" : ""}">${k}</span>`;
+  }).join("");
+
+  // 줄거리
+  const plotHTML = m.plot
+    ? `<div class="detail-section"><div class="section-label">줄거리</div><div class="plot-text">${m.plot.replace(/</g,"&lt;")}</div></div>`
+    : "";
+
+  // 수상/영화제
+  const awards = m.awards || [];
+  const awardsHTML = awards.length
+    ? `<div class="detail-section">
+        <div class="section-label">수상 / 영화제</div>
+        <div class="detail-awards">
+          ${awards.map(a => `
+            <div class="award-item">
+              ${a.festival ? `<div class="award-festival">${a.festival}${a.year ? " " + a.year : ""}</div>` : ""}
+              <div class="award-name">${a.title || ""}</div>
+              ${a.person ? `<div class="award-person">${a.person}</div>` : ""}
+            </div>`).join("")}
+        </div>
+      </div>`
+    : "";
+
+  // 제작진
+  const staff = m.staff || [];
+  const staffHTML = staff.length
+    ? `<div class="detail-section">
+        <div class="section-label">제작진</div>
+        <div class="detail-staff-grid">
+          ${staff.map(s => `
+            <div class="staff-item">
+              <span class="staff-role">${s.role}</span>
+              <span class="staff-name">${s.name}</span>
+            </div>`).join("")}
+        </div>
+      </div>`
+    : "";
+
+  // 제작사
+  const companies = m.companies || [];
+  const companiesHTML = companies.length
+    ? `<div class="detail-companies">제작: ${companies.join(" / ")}</div>`
+    : "";
+
+  // 스틸컷 영역 (나중에 채워짐)
+  const stillsContainerId = "detailStillsRow";
+  const stillsWrapId      = "detailStillsWrap";
+
+  // 카테고리 select 옵션
+  const catOpts = `<option value="">카테고리 선택…</option>` +
+    categories.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+
+  document.getElementById("detailContent").innerHTML = `
+    <div class="detail-hero">
+      <div class="detail-poster">${posterHTML}</div>
+      <div class="detail-info">
+        <div class="detail-title-ko">${m.title || "제목 미상"}</div>
+        ${m.titleEng ? `<div class="detail-title-en">${m.titleEng}</div>` : ""}
+        ${m.ratingGrade ? `<span class="detail-rating-badge">${m.ratingGrade}</span>` : ""}
+        <div class="meta-table">${metaHTML}</div>
+        ${tagsHTML ? `<div class="tag-row">${tagsHTML}</div>` : ""}
+        ${companiesHTML}
+        <div class="detail-add-row">
+          <select class="cat-sel" id="detailCatSel">${catOpts}</select>
+          <button class="btn-add" id="detailAddBtn">추가</button>
+        </div>
+      </div>
+    </div>
+    ${plotHTML}
+    ${awardsHTML}
+    ${staffHTML}
+    <div class="detail-section" id="${stillsWrapId}" style="display:none">
+      <div class="section-label">스틸컷</div>
+      <div class="stills-scroll" id="${stillsContainerId}"></div>
+    </div>`;
+
+  // 감독 링크 이벤트
+  document.getElementById("detailContent").querySelectorAll(".director-link").forEach(el => {
+    el.addEventListener("click", () => {
+      const tmdbId = currentMovie?.tmdb_id || null;
+      showScreen(detailFromScreen);
+      doSearch(el.dataset.director, "director", tmdbId);
+    });
+  });
+
+  // 스틸컷 렌더
+  const row      = document.getElementById(stillsContainerId);
+  const stillsWrap = document.getElementById(stillsWrapId);
+  const renderStills = (urls) => {
+    const existing = new Set([...row.querySelectorAll("img")].map(i => i.src));
+    const fresh = urls.filter(u => !existing.has(u));
+    if (!fresh.length) return;
+    fresh.forEach(s => {
+      const img = document.createElement("img");
+      img.src = s; img.alt = ""; img.loading = "lazy";
+      img.addEventListener("click", () => openLightbox(img.src));
+      row.appendChild(img);
+    });
+    stillsWrap.style.display = "";
+  };
+  if ((m.stills || []).length) renderStills(m.stills);
+  if (m.tmdb_id) {
+    apiGet(`/api/images?tmdbId=${m.tmdb_id}`)
+      .then(data => { if (data.stills?.length) renderStills(data.stills); })
+      .catch(() => {});
+  }
+
+  // 카테고리 추가 버튼
+  document.getElementById("detailAddBtn").addEventListener("click", async () => {
+    const catId = document.getElementById("detailCatSel").value;
+    if (!catId || !currentMovie) return;
+    const btn = document.getElementById("detailAddBtn");
+    btn.disabled = true; btn.textContent = "추가 중…";
+    try {
+      await apiPost(`/api/categories?catId=${catId}`, {
+        movie_id:   currentMovie.id,
+        movie_data: currentMovie,
+      });
+      const cat = categories.find(c => c.id === catId);
+      if (cat) cat.movie_count = (cat.movie_count || 0) + 1;
+      renderSidebar();
+      toast(`"${cat?.name}"에 추가됨`);
+    } catch (e) {
+      const msg = e.message === "409" ? "이미 추가된 영화입니다." : "추가 실패";
+      toast(msg, "err");
+    } finally {
+      btn.disabled = false; btn.textContent = "추가";
+    }
+  });
+
+  showScreen("detail");
+  document.getElementById("detailScreen").scrollTop = 0;
 }
 
 /* ── 카테고리에 추가 ────────────────────────── */
@@ -2186,12 +2585,25 @@ initSearchTypeToggle("topSearchType",  "topInput");
 initAdvPanel();
 initHomeFilters();
 
+/* ── 뷰 토글 ───────────────────────────────── */
+document.getElementById("viewToggle").addEventListener("click", e => {
+  const btn = e.target.closest(".vt-btn");
+  if (!btn) return;
+  viewMode = btn.dataset.view;
+  document.querySelectorAll(".vt-btn").forEach(b => b.classList.toggle("active", b.dataset.view === viewMode));
+  document.querySelectorAll(".movie-grid").forEach(g => g.classList.toggle("list-view", viewMode === "list"));
+});
+
 /* ── 뒤로가기 ──────────────────────────────── */
 document.getElementById("backBtn").addEventListener("click", () => {
   activeCatId = null; renderSidebar(); showScreen("home");
 });
 document.getElementById("catBackBtn").addEventListener("click", () => {
   activeCatId = null; renderSidebar(); showScreen("home");
+});
+document.getElementById("detailBackBtn").addEventListener("click", () => {
+  currentMovie = null;
+  showScreen(detailFromScreen);
 });
 
 /* ── 모달 닫기 ─────────────────────────────── */
