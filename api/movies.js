@@ -425,8 +425,16 @@ module.exports = async function handler(req, res) {
       results.push(parseKOFIC(kofic));
     }
 
+    // 제목 검색 시: 실제로 제목에 검색어가 포함된 결과만 남김 (API 부분매칭 오염 제거)
+    let finalResults = results;
+    if (searchBy === "title" && q) {
+      const qNorm = norm(q);
+      const strict = results.filter(r => norm(r.title).includes(qNorm));
+      if (strict.length > 0) finalResults = strict;
+    }
+
     res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
-    return res.json({ results, total: results.length, page: 1 });
+    return res.json({ results: finalResults, total: finalResults.length, page: 1 });
   }
 
   /* ════ 브라우징 모드 ════════════════════════ */
