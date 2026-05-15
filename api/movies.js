@@ -437,69 +437,74 @@ module.exports = async function handler(req, res) {
     return res.json({ results: finalResults, total: finalResults.length, page: 1 });
   }
 
-  /* ════ 브라우징 모드 ════════════════════════ */
-  const BROWSE_SIZE = 10;
+  /* ════ 브라우징 모드 ════════════════════════
+   * 기본: TMDB discover (전체 영화, 국적 무관)
+   * koreanOnly=true: TMDB 한국어 영화만
+   * indieOnly=true:  KOFIC 독립영화 (한국 한정)
+   * ═══════════════════════════════════════ */
+  const indieOnly  = req.query.indieOnly  === "true";
+  const koreanOnly = req.query.koreanOnly === "true";
 
-  const baseKoficParams = {
-    key:           koficKey,
-    curPage:       page,
-    itemPerPage:   String(BROWSE_SIZE),
-    prdtStartYear: yearFrom || "2020",
-    prdtEndYear:   yearTo   || "2026",
-  };
-  if (genre) baseKoficParams.genreNm = genre;
+  let results = [], total = 0;
 
-  async function fetchKofic(params) {
-    const r    = await fetch(`${KOFIC_BASE}?${new URLSearchParams(params)}`);
-    const data = await r.json();
-    const all  = data.movieListResult?.movieList || [];
-    return {
-      movies: all.filter(m => (m.repNationNm || "").includes("한국")),
-      total:  parseInt(data.movieListResult?.totCnt || "0"),
-    };
-  }
+  if (indieOnly && koficKey) {
+    /* ── 독립영화 모드: KOFIC → TMDB+KMDb 보강 ── */
+    const koficParams = new URLSearchParams({
+      key: koficKey, curPage: page, itemPerPage: "20",
+      prdtStartYear: yearFrom || "2020",
+      prdtEndYear:   yearTo   || "2026",
+      movieTypeCd:   "204104",
+    });
+    if (genre) koficParams.set("genreNm", genre);
+    try {
+      const r    = await fetch(`${KOFIC_BASE}?${koficParams}`);
+      const data = await r.json();
+      const all  = data.movieListResult?.movieList || [];
+      total = parseInt(data.movieListResult?.totCnt || "0");
+      const koficMovies = all.filter(m => (m.repNationNm || "").includes("한국"));
 
-  let koficMovies = [], total = 0;
-  try {
-    // 1차: 독립영화 타입으로 시도
-    const indie = await fetchKofic({ ...baseKoficParams, movieTypeCd: "204104" });
-    if (indie.movies.length > 0) {
-      koficMovies = indie.movies;
-      total       = indie.total;
-    } else {
-      // 2차: 독립영화 데이터 없으면 타입 제한 없이 한국 영화 전체
-      const all = await fetchKofic(baseKoficParams);
-      koficMovies = all.movies;
-      total       = all.total;
+      const enriched = await Promise.allSettled(
+        koficMovies.map(async koficRaw => {
+          const base = parseKOFIC(koficRaw);
+          if (!base.title) return base;
+          try {
+            const [tmdbItems, kmdbItems] = await Promise.all([
+              tmdbSearch(base.title, tmdbKey, 5),
+              kmdbQuery(base.title, base.director, kmdbKey, 3, "title"),
+            ]);
+            const tmdb = tmdbItems.find(t => yearClose((t.release_date || "").substring(0, 4), base.year)) || tmdbItems[0] || null;
+            const kmdb = kmdbItems.find(k => yearClose(k.prodYear, base.year)) || kmdbItems[0] || null;
+            return mergeRecord(tmdb, kmdb, koficRaw);
+          } catch { return base; }
+        })
+      );
+      results = enriched.map(r => r.status === "fulfilled" ? r.value : null).filter(m => m?.title);
+    } catch (err) {
+      return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
     }
-  } catch (err) {
-    return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
+
+  } else if (tmdbKey) {
+    /* ── 기본/한국 모드: TMDB discover ── */
+    const discoverParams = new URLSearchParams({
+      api_key:  tmdbKey,
+      language: "ko-KR",
+      sort_by:  "release_date.desc",
+      page,
+      "vote_count.gte": "0",
+    });
+    if (yearFrom) discoverParams.set("primary_release_date.gte", `${yearFrom}-01-01`);
+    if (yearTo)   discoverParams.set("primary_release_date.lte", `${yearTo}-12-31`);
+    if (koreanOnly) discoverParams.set("with_original_language", "ko");
+
+    try {
+      const r    = await fetch(`${TMDB_BASE}/discover/movie?${discoverParams}`);
+      const data = await r.json();
+      total   = data.total_results || 0;
+      results = (data.results || []).map(item => parseTMDb(item));
+    } catch (err) {
+      return res.status(502).json({ error: "TMDB API 오류", detail: err.message });
+    }
   }
-
-  // TMDB + KMDb 병렬 보강 — 포스터·줄거리·배우 획득
-  const enriched = await Promise.allSettled(
-    koficMovies.map(async koficRaw => {
-      const base = parseKOFIC(koficRaw);
-      if (!base.title) return base;
-      try {
-        const [tmdbItems, kmdbItems] = await Promise.all([
-          tmdbSearch(base.title, tmdbKey, 5),
-          kmdbQuery(base.title, base.director, kmdbKey, 3, "title"),
-        ]);
-        const tmdb = tmdbItems.find(t => yearClose((t.release_date || "").substring(0, 4), base.year))
-                  || tmdbItems[0] || null;
-        const kmdb = kmdbItems.find(k => yearClose(k.prodYear, base.year))
-                  || kmdbItems[0] || null;
-        return mergeRecord(tmdb, kmdb, koficRaw);
-      } catch {
-        return base;
-      }
-    })
-  );
-
-  const results = enriched
-    .map(r => r.status === "fulfilled" ? r.value : null)
-    .filter(m => m?.title);
 
   res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
   res.json({ results, total, page: parseInt(page) });
