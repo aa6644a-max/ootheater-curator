@@ -438,25 +438,40 @@ module.exports = async function handler(req, res) {
   }
 
   /* ════ 브라우징 모드 ════════════════════════ */
-  const BROWSE_SIZE = 10; // 10편 × (TMDB+KMDb) = 20개 병렬 호출
+  const BROWSE_SIZE = 10;
 
-  const koficParams = new URLSearchParams({
+  const baseKoficParams = {
     key:           koficKey,
     curPage:       page,
     itemPerPage:   String(BROWSE_SIZE),
     prdtStartYear: yearFrom || "2020",
     prdtEndYear:   yearTo   || "2026",
-    movieTypeCd:   "204104", // 독립영화
-  });
-  if (genre) koficParams.set("genreNm", genre);
+  };
+  if (genre) baseKoficParams.genreNm = genre;
+
+  async function fetchKofic(params) {
+    const r    = await fetch(`${KOFIC_BASE}?${new URLSearchParams(params)}`);
+    const data = await r.json();
+    const all  = data.movieListResult?.movieList || [];
+    return {
+      movies: all.filter(m => (m.repNationNm || "").includes("한국")),
+      total:  parseInt(data.movieListResult?.totCnt || "0"),
+    };
+  }
 
   let koficMovies = [], total = 0;
   try {
-    const r    = await fetch(`${KOFIC_BASE}?${koficParams}`);
-    const data = await r.json();
-    const all  = data.movieListResult?.movieList || [];
-    total       = parseInt(data.movieListResult?.totCnt || "0");
-    koficMovies = all.filter(m => (m.repNationNm || "").includes("한국"));
+    // 1차: 독립영화 타입으로 시도
+    const indie = await fetchKofic({ ...baseKoficParams, movieTypeCd: "204104" });
+    if (indie.movies.length > 0) {
+      koficMovies = indie.movies;
+      total       = indie.total;
+    } else {
+      // 2차: 독립영화 데이터 없으면 타입 제한 없이 한국 영화 전체
+      const all = await fetchKofic(baseKoficParams);
+      koficMovies = all.movies;
+      total       = all.total;
+    }
   } catch (err) {
     return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
   }
