@@ -388,6 +388,70 @@ body {
   align-self: center;
 }
 .adv-reset:hover { color: var(--danger); border-color: var(--danger); }
+
+/* 장르 칩 */
+.adv-field--genre { align-items: flex-start; }
+.genre-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.genre-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all var(--ease);
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.genre-chip:hover { border-color: var(--accent); color: var(--text); }
+.genre-chip.active { background: var(--accent); border-color: var(--accent); color: #111; font-weight: 700; }
+
+/* 배우 텍스트 입력 */
+.adv-field input[type="text"] {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-family: var(--font);
+  outline: none;
+  width: 140px;
+  transition: border-color var(--ease);
+}
+.adv-field input[type="text"]:focus { border-color: var(--accent); }
+
+/* 토글 체크박스 행 */
+.adv-checks {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: center;
+}
+.adv-check-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.adv-check-label input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
 .adv-active-count {
   display: inline-block;
   background: var(--accent);
@@ -1100,29 +1164,32 @@ body {
       <div class="results-stat" id="resStat"></div>
     </div>
     <div class="adv-panel" id="advPanel">
+
+      <!-- 행 1: 연도 + 장르 칩 -->
       <div class="adv-field">
         <span class="adv-label">연도</span>
         <input type="number" id="fYearFrom" placeholder="시작" min="2000" max="2030">
         <span style="color:var(--muted);font-size:0.8rem">~</span>
         <input type="number" id="fYearTo" placeholder="종료" min="2000" max="2030">
       </div>
-      <div class="adv-field">
+      <div class="adv-field adv-field--genre">
         <span class="adv-label">장르</span>
-        <select id="fGenre">
-          <option value="">전체</option>
-          <option>드라마</option>
-          <option>다큐멘터리</option>
-          <option>애니메이션</option>
-          <option>코미디</option>
-          <option>스릴러</option>
-          <option>공포</option>
-          <option>멜로/로맨스</option>
-          <option>액션</option>
-          <option>가족</option>
-          <option>음악</option>
-          <option>SF</option>
-        </select>
+        <div class="genre-chips" id="genreChips">
+          <button class="genre-chip" data-genre="드라마">드라마</button>
+          <button class="genre-chip" data-genre="다큐멘터리">다큐</button>
+          <button class="genre-chip" data-genre="애니메이션">애니</button>
+          <button class="genre-chip" data-genre="코미디">코미디</button>
+          <button class="genre-chip" data-genre="스릴러">스릴러</button>
+          <button class="genre-chip" data-genre="공포">공포</button>
+          <button class="genre-chip" data-genre="멜로/로맨스">멜로</button>
+          <button class="genre-chip" data-genre="음악">음악</button>
+          <button class="genre-chip" data-genre="SF">SF</button>
+          <button class="genre-chip" data-genre="가족">가족</button>
+          <button class="genre-chip" data-genre="액션">액션</button>
+        </div>
       </div>
+
+      <!-- 행 2: 러닝타임 + 개봉상태 -->
       <div class="adv-field">
         <span class="adv-label">러닝타임</span>
         <div class="adv-radios">
@@ -1140,6 +1207,21 @@ body {
           <label><input type="radio" name="fStatus" value="개봉준비"> 개봉준비</label>
         </div>
       </div>
+
+      <!-- 행 3: 배우 + 토글 -->
+      <div class="adv-field">
+        <span class="adv-label">출연배우</span>
+        <input type="text" id="fActor" placeholder="배우 이름…" autocomplete="off">
+      </div>
+      <div class="adv-checks">
+        <label class="adv-check-label">
+          <input type="checkbox" id="fIndieOnly"> 독립영화만
+        </label>
+        <label class="adv-check-label">
+          <input type="checkbox" id="fHasPoster"> 포스터 있음
+        </label>
+      </div>
+
       <button class="adv-reset" id="advReset">초기화</button>
     </div>
     <div class="movie-grid" id="resGrid"></div>
@@ -1260,6 +1342,9 @@ let filterYearTo     = "";
 let filterGenre      = "";
 let filterRuntime    = ""; // "" | "short" | "feature"
 let filterStatus     = "";
+let filterActor      = "";
+let filterIndieOnly  = false;
+let filterHasPoster  = false;
 let allCatMovies     = [];
 let allCatRows       = [];
 let catPage          = 1;
@@ -1389,12 +1474,22 @@ function applyFilters(results) {
     if (filterRuntime === "short"   && !(m.runtime != null && m.runtime < 40))  return false;
     if (filterRuntime === "feature" && !(m.runtime != null && m.runtime >= 40)) return false;
     if (filterStatus   && !(m.status || "").includes(filterStatus)) return false;
+    if (filterActor) {
+      const q = filterActor.toLowerCase();
+      const hit = (m.actors || []).some(a => a.toLowerCase().includes(q));
+      if (!hit) return false;
+    }
+    if (filterIndieOnly && !(m.type || "").includes("독립")) return false;
+    if (filterHasPoster && !m.poster_url) return false;
     return true;
   });
 }
 
 function activeFilterCount() {
-  return [filterYearFrom, filterYearTo, filterGenre, filterRuntime, filterStatus].filter(Boolean).length;
+  let n = [filterYearFrom, filterYearTo, filterGenre, filterRuntime, filterStatus, filterActor].filter(Boolean).length;
+  if (filterIndieOnly) n++;
+  if (filterHasPoster) n++;
+  return n;
 }
 
 function updateAdvToggleLabel() {
@@ -1440,11 +1535,13 @@ function initAdvPanel() {
   });
 
   const reApply = () => {
-    filterYearFrom = document.getElementById("fYearFrom").value.trim();
-    filterYearTo   = document.getElementById("fYearTo").value.trim();
-    filterGenre    = document.getElementById("fGenre").value;
-    filterRuntime  = document.querySelector('input[name="fRuntime"]:checked')?.value || "";
-    filterStatus   = document.querySelector('input[name="fStatus"]:checked')?.value  || "";
+    filterYearFrom  = document.getElementById("fYearFrom").value.trim();
+    filterYearTo    = document.getElementById("fYearTo").value.trim();
+    filterRuntime   = document.querySelector('input[name="fRuntime"]:checked')?.value || "";
+    filterStatus    = document.querySelector('input[name="fStatus"]:checked')?.value  || "";
+    filterActor     = document.getElementById("fActor").value.trim();
+    filterIndieOnly = document.getElementById("fIndieOnly").checked;
+    filterHasPoster = document.getElementById("fHasPoster").checked;
     filteredResults = applyFilters(allSearchResults);
     searchPage = 1;
     updateAdvToggleLabel();
@@ -1455,19 +1552,48 @@ function initAdvPanel() {
         : `${allSearchResults.length}편`;
   };
 
-  document.getElementById("fYearFrom").addEventListener("change", reApply);
-  document.getElementById("fYearTo").addEventListener("change",   reApply);
-  document.getElementById("fGenre").addEventListener("change",    reApply);
+  /* 장르 칩 — 단일 선택 토글 */
+  document.getElementById("genreChips").addEventListener("click", e => {
+    const chip = e.target.closest(".genre-chip");
+    if (!chip) return;
+    const genre = chip.dataset.genre;
+    if (filterGenre === genre) {
+      filterGenre = "";
+      chip.classList.remove("active");
+    } else {
+      document.querySelectorAll(".genre-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      filterGenre = genre;
+    }
+    reApply();
+  });
+
+  /* 배우 입력 — 디바운스 300ms */
+  let actorTimer;
+  document.getElementById("fActor").addEventListener("input", () => {
+    clearTimeout(actorTimer);
+    actorTimer = setTimeout(reApply, 300);
+  });
+
+  document.getElementById("fYearFrom").addEventListener("change",  reApply);
+  document.getElementById("fYearTo").addEventListener("change",    reApply);
+  document.getElementById("fIndieOnly").addEventListener("change", reApply);
+  document.getElementById("fHasPoster").addEventListener("change", reApply);
   document.querySelectorAll('input[name="fRuntime"]').forEach(r => r.addEventListener("change", reApply));
   document.querySelectorAll('input[name="fStatus"]').forEach(r  => r.addEventListener("change", reApply));
 
   document.getElementById("advReset").addEventListener("click", () => {
     document.getElementById("fYearFrom").value = "";
     document.getElementById("fYearTo").value   = "";
-    document.getElementById("fGenre").value    = "";
+    document.getElementById("fActor").value    = "";
+    document.getElementById("fIndieOnly").checked = false;
+    document.getElementById("fHasPoster").checked = false;
     document.querySelector('input[name="fRuntime"][value=""]').checked = true;
     document.querySelector('input[name="fStatus"][value=""]').checked  = true;
-    filterYearFrom = filterYearTo = filterGenre = filterRuntime = filterStatus = "";
+    document.querySelectorAll(".genre-chip").forEach(c => c.classList.remove("active"));
+    filterYearFrom = filterYearTo = filterGenre = filterRuntime = filterStatus = filterActor = "";
+    filterIndieOnly = false;
+    filterHasPoster = false;
     filteredResults = allSearchResults.slice();
     searchPage = 1;
     updateAdvToggleLabel();
