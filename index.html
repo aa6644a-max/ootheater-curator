@@ -168,6 +168,25 @@ body {
   max-width: 580px;
   align-items: stretch;
 }
+.home-filter-wrap {
+  width: 100%;
+  max-width: 580px;
+  margin-top: 8px;
+}
+.home-filter-wrap .adv-toggle {
+  width: 100%;
+  text-align: left;
+  border-radius: 3px 3px 0 0;
+}
+.home-filter-wrap .adv-toggle:not(.open) {
+  border-radius: 3px;
+}
+.home-adv-panel.open {
+  border: 1px solid var(--accent);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  padding: 14px 16px;
+}
 .home-search-input {
   flex: 1;
   max-width: none !important;
@@ -968,6 +987,12 @@ body {
     max-width: 100%;
     gap: 10px;
   }
+  .home-filter-wrap {
+    max-width: 100%;
+  }
+  .home-adv-panel.open {
+    padding: 12px;
+  }
   #homeSearchType {
     width: 100%;
     border-radius: 3px;
@@ -1142,6 +1167,65 @@ body {
       <div class="search-wrap home-search-input">
         <input id="homeInput" type="text" placeholder="영화 제목으로 검색…" autocomplete="off" />
         <button id="homeBtn">검색</button>
+      </div>
+    </div>
+
+    <!-- 홈 필터 패널 -->
+    <div class="home-filter-wrap">
+      <button class="adv-toggle" id="homeAdvToggle">필터 ▾</button>
+      <div class="adv-panel home-adv-panel" id="homeAdvPanel">
+
+        <div class="adv-field">
+          <span class="adv-label">연도</span>
+          <input type="number" id="hfYearFrom" placeholder="시작" min="2000" max="2030">
+          <span style="color:var(--muted);font-size:0.8rem">~</span>
+          <input type="number" id="hfYearTo" placeholder="종료" min="2000" max="2030">
+        </div>
+        <div class="adv-field adv-field--genre">
+          <span class="adv-label">장르</span>
+          <div class="genre-chips" id="hfGenreChips">
+            <button class="genre-chip" data-genre="드라마">드라마</button>
+            <button class="genre-chip" data-genre="다큐멘터리">다큐</button>
+            <button class="genre-chip" data-genre="애니메이션">애니</button>
+            <button class="genre-chip" data-genre="코미디">코미디</button>
+            <button class="genre-chip" data-genre="스릴러">스릴러</button>
+            <button class="genre-chip" data-genre="공포">공포</button>
+            <button class="genre-chip" data-genre="멜로/로맨스">멜로</button>
+            <button class="genre-chip" data-genre="음악">음악</button>
+            <button class="genre-chip" data-genre="SF">SF</button>
+            <button class="genre-chip" data-genre="가족">가족</button>
+            <button class="genre-chip" data-genre="액션">액션</button>
+          </div>
+        </div>
+
+        <div class="adv-field">
+          <span class="adv-label">러닝타임</span>
+          <div class="adv-radios">
+            <label><input type="radio" name="hfRuntime" value="" checked> 전체</label>
+            <label><input type="radio" name="hfRuntime" value="short"> 단편 &lt;40분</label>
+            <label><input type="radio" name="hfRuntime" value="feature"> 장편 ≥40분</label>
+          </div>
+        </div>
+        <div class="adv-field">
+          <span class="adv-label">개봉상태</span>
+          <div class="adv-radios">
+            <label><input type="radio" name="hfStatus" value="" checked> 전체</label>
+            <label><input type="radio" name="hfStatus" value="미개봉"> 미개봉</label>
+            <label><input type="radio" name="hfStatus" value="제작완료"> 제작완료</label>
+            <label><input type="radio" name="hfStatus" value="개봉준비"> 개봉준비</label>
+          </div>
+        </div>
+
+        <div class="adv-field">
+          <span class="adv-label">출연배우</span>
+          <input type="text" id="hfActor" placeholder="배우 이름…" autocomplete="off">
+        </div>
+        <div class="adv-checks">
+          <label class="adv-check-label"><input type="checkbox" id="hfIndieOnly"> 독립영화만</label>
+          <label class="adv-check-label"><input type="checkbox" id="hfHasPoster"> 포스터 있음</label>
+        </div>
+
+        <button class="adv-reset" id="homeAdvReset">초기화</button>
       </div>
     </div>
   </div>
@@ -1493,12 +1577,12 @@ function activeFilterCount() {
 }
 
 function updateAdvToggleLabel() {
-  const cnt = activeFilterCount();
-  const btn = document.getElementById("advToggle");
-  if (!btn) return;
-  btn.innerHTML = cnt
-    ? `필터 ▾ <span class="adv-active-count">${cnt}</span>`
-    : "필터 ▾";
+  const cnt   = activeFilterCount();
+  const label = cnt ? `필터 ▾ <span class="adv-active-count">${cnt}</span>` : "필터 ▾";
+  ["advToggle", "homeAdvToggle"].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.innerHTML = label;
+  });
 }
 
 /* ── 검색 타입 토글 ─────────────────────────── */
@@ -2022,6 +2106,7 @@ bindSearch("topInput",  "topBtn");
 initSearchTypeToggle("homeSearchType", "homeInput");
 initSearchTypeToggle("topSearchType",  "topInput");
 initAdvPanel();
+initHomeFilters();
 
 /* ── 뒤로가기 ──────────────────────────────── */
 document.getElementById("backBtn").addEventListener("click", () => {
@@ -2043,6 +2128,73 @@ document.addEventListener("keydown", e => {
     document.getElementById("dlgOverlay").classList.remove("open");
   }
 });
+
+/* ── 홈 화면 필터 초기화 ─────────────────────── */
+function initHomeFilters() {
+  const toggle = document.getElementById("homeAdvToggle");
+  const panel  = document.getElementById("homeAdvPanel");
+
+  toggle.addEventListener("click", () => {
+    const open = panel.classList.toggle("open");
+    toggle.classList.toggle("open", open);
+  });
+
+  /* 상태 변수 업데이트만 (검색 전이므로 reApply 없음) */
+  const updateState = () => {
+    filterYearFrom  = document.getElementById("hfYearFrom").value.trim();
+    filterYearTo    = document.getElementById("hfYearTo").value.trim();
+    filterRuntime   = document.querySelector('input[name="hfRuntime"]:checked')?.value || "";
+    filterStatus    = document.querySelector('input[name="hfStatus"]:checked')?.value  || "";
+    filterActor     = document.getElementById("hfActor").value.trim();
+    filterIndieOnly = document.getElementById("hfIndieOnly").checked;
+    filterHasPoster = document.getElementById("hfHasPoster").checked;
+    updateAdvToggleLabel();
+  };
+
+  /* 홈 장르 칩 */
+  document.getElementById("hfGenreChips").addEventListener("click", e => {
+    const chip = e.target.closest(".genre-chip");
+    if (!chip) return;
+    const genre = chip.dataset.genre;
+    if (filterGenre === genre) {
+      filterGenre = "";
+      chip.classList.remove("active");
+    } else {
+      document.querySelectorAll("#hfGenreChips .genre-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      filterGenre = genre;
+    }
+    updateState();
+  });
+
+  let actorTimer;
+  document.getElementById("hfActor").addEventListener("input", () => {
+    clearTimeout(actorTimer);
+    actorTimer = setTimeout(updateState, 300);
+  });
+
+  document.getElementById("hfYearFrom").addEventListener("change",  updateState);
+  document.getElementById("hfYearTo").addEventListener("change",    updateState);
+  document.getElementById("hfIndieOnly").addEventListener("change", updateState);
+  document.getElementById("hfHasPoster").addEventListener("change", updateState);
+  document.querySelectorAll('input[name="hfRuntime"]').forEach(r => r.addEventListener("change", updateState));
+  document.querySelectorAll('input[name="hfStatus"]').forEach(r  => r.addEventListener("change", updateState));
+
+  document.getElementById("homeAdvReset").addEventListener("click", () => {
+    document.getElementById("hfYearFrom").value   = "";
+    document.getElementById("hfYearTo").value     = "";
+    document.getElementById("hfActor").value      = "";
+    document.getElementById("hfIndieOnly").checked = false;
+    document.getElementById("hfHasPoster").checked = false;
+    document.querySelector('input[name="hfRuntime"][value=""]').checked = true;
+    document.querySelector('input[name="hfStatus"][value=""]').checked  = true;
+    document.querySelectorAll("#hfGenreChips .genre-chip").forEach(c => c.classList.remove("active"));
+    filterYearFrom = filterYearTo = filterGenre = filterRuntime = filterStatus = filterActor = "";
+    filterIndieOnly = false;
+    filterHasPoster = false;
+    updateAdvToggleLabel();
+  });
+}
 
 /* ── 모바일 탭바 ────────────────────────────── */
 document.getElementById("mnavHome")?.addEventListener("click", () => {
