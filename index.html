@@ -161,6 +161,17 @@ body {
   margin-bottom: 36px;
   font-family: var(--mono);
 }
+.home-search-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  max-width: 580px;
+  align-items: stretch;
+}
+.home-search-input {
+  flex: 1;
+  max-width: none !important;
+}
 .search-wrap {
   display: flex;
   width: 100%;
@@ -887,6 +898,29 @@ body {
     padding: 40px 20px 80px;
   }
 
+  /* 홈 검색 영역: 세로 배치 */
+  .home-search-row {
+    flex-direction: column;
+    max-width: 100%;
+    gap: 10px;
+  }
+  #homeSearchType {
+    width: 100%;
+    border-radius: 3px;
+  }
+  #homeSearchType button {
+    flex: 1;
+    height: 44px;
+    font-size: 0.8rem;
+  }
+  .home-search-input {
+    width: 100%;
+  }
+  .home-search-input input {
+    font-size: 1rem;
+    padding: 14px 16px;
+  }
+
   .results-bar {
     flex-wrap: wrap;
     gap: 6px;
@@ -1034,14 +1068,14 @@ body {
   <div id="homeScreen">
     <div class="home-title">오오극장 큐레이터</div>
     <div class="home-sub">영화를 검색하고 기획전 카테고리에 추가하세요</div>
-    <div style="display:flex;gap:8px;width:100%;max-width:580px;align-items:stretch">
+    <div class="home-search-row">
       <div class="search-type" id="homeSearchType">
         <button class="active" data-type="title">제목</button>
         <button data-type="director">감독</button>
         <button data-type="keyword">키워드</button>
         <button data-type="actor">배우</button>
       </div>
-      <div class="search-wrap" style="flex:1;max-width:none">
+      <div class="search-wrap home-search-input">
         <input id="homeInput" type="text" placeholder="영화 제목으로 검색…" autocomplete="off" />
         <button id="homeBtn">검색</button>
       </div>
