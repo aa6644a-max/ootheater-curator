@@ -399,6 +399,7 @@ body {
   align-content: start;
   align-items: start;
 }
+.mobile-bottom-nav { display: none; }
 .movie-grid::-webkit-scrollbar { width: 4px; }
 .movie-grid::-webkit-scrollbar-thumb { background: var(--border); }
 
@@ -852,12 +853,167 @@ body {
   font-family: var(--mono);
   line-height: 1.8;
 }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════ */
+
+/* ── 태블릿 (641–1023px) ── */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .movie-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ── 모바일 (≤640px) ── */
+@media (max-width: 640px) {
+  .desktop-sidebar { display: none !important; }
+
+  .movie-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px 12px 80px;
+    flex: none;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .main {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  #homeScreen {
+    padding: 40px 20px 80px;
+  }
+
+  .results-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px;
+  }
+  .results-stat { margin-left: 0; }
+
+  .adv-panel.open { flex-direction: column; gap: 10px; }
+
+  .pagination { padding: 10px 12px 80px; }
+
+  /* 모달 풀스크린 */
+  .overlay { padding: 0; }
+  .modal {
+    max-width: 100%;
+    min-height: 100vh;
+    border-radius: 0;
+    margin: 0;
+  }
+  .modal-hero { flex-direction: column; padding: 16px; gap: 14px; }
+  .modal-poster { width: 110px; min-width: 110px; }
+
+  /* 토스트: 하단 탭바 위 */
+  .toast { bottom: 70px; right: 12px; left: 12px; text-align: center; }
+
+  /* 하단 탭바 */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 120;
+    align-items: stretch;
+  }
+  .mobile-bottom-nav .mnav-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 0.58rem;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: color var(--ease);
+    padding: 0;
+    letter-spacing: 0.04em;
+  }
+  .mobile-bottom-nav .mnav-btn:hover,
+  .mobile-bottom-nav .mnav-btn.active { color: var(--accent); }
+  .mobile-bottom-nav .mnav-btn svg { width: 20px; height: 20px; }
+
+  /* 카테고리 바텀 시트 */
+  .mobile-cat-sheet {
+    position: fixed;
+    bottom: 60px; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 14px 14px 0 0;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    z-index: 110;
+    transform: translateY(100%);
+    transition: transform 0.22s cubic-bezier(0.4,0,0.2,1);
+    overflow: hidden;
+  }
+  .mobile-cat-sheet.open { transform: translateY(0); }
+
+  .mobile-cat-sheet-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .mobile-cat-sheet-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .mobile-cat-sheet-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+  }
+  .mobile-cat-list { flex: 1; overflow-y: auto; }
+  .mobile-cat-list::-webkit-scrollbar { width: 3px; }
+  .mobile-cat-list::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .mobile-cat-sheet-foot {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  /* 시트 열릴 때 뒤 scrim */
+  .mobile-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 105;
+  }
+  .mobile-scrim.open { display: block; }
+}
+
+/* ── 데스크톱 (≥1024px) ── */
+@media (min-width: 1024px) {
+  .mobile-bottom-nav { display: none; }
+  .desktop-sidebar { display: flex; }
+  .movie-grid { grid-template-columns: repeat(4, 1fr); }
+}
 </style>
 </head>
 <body>
 
 <!-- ═══════════ SIDEBAR ═══════════ -->
-<nav class="sidebar">
+<nav class="sidebar desktop-sidebar">
   <div class="sb-head">
     <div class="sb-logo">오오극장</div>
     <div class="sb-sub">독립영화 기획전 큐레이터</div>
@@ -967,6 +1123,42 @@ body {
 
 </main>
 
+<!-- ═══════════ MOBILE BOTTOM NAV ═══════════ -->
+<nav class="mobile-bottom-nav" id="mobileNav">
+  <button class="mnav-btn active" id="mnavHome">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"/><polyline points="9 21 9 12 15 12 15 21"/>
+    </svg>
+    <span>홈</span>
+  </button>
+  <button class="mnav-btn" id="mnavCat">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+    </svg>
+    <span>카테고리</span>
+  </button>
+  <button class="mnav-btn" id="mnavNewCat">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>
+    <span>새 목록</span>
+  </button>
+</nav>
+
+<!-- ═══════════ MOBILE CAT SHEET ═══════════ -->
+<div class="mobile-scrim" id="mobileScrim"></div>
+<div class="mobile-cat-sheet" id="mobileCatSheet">
+  <div class="mobile-cat-sheet-head">
+    <span class="mobile-cat-sheet-title">내 카테고리</span>
+    <button class="mobile-cat-sheet-close" id="mobileCatSheetClose">✕</button>
+  </div>
+  <div class="mobile-cat-list" id="mobileCatList"></div>
+  <div class="mobile-cat-sheet-foot">
+    <button class="btn-new-cat" id="mobileNewCatInSheet">+ 새 카테고리</button>
+  </div>
+</div>
+
 <!-- ═══════════ LIGHTBOX ═══════════ -->
 <div id="lightbox">
   <button id="lightboxClose">✕</button>
@@ -1051,6 +1243,10 @@ function showScreen(name) {
   document.getElementById("homeScreen").style.display    = name === "home"    ? "" : "none";
   document.getElementById("resultsScreen").style.display = name === "results" ? "flex" : "none";
   document.getElementById("catScreen").style.display     = name === "cat"     ? "flex" : "none";
+  const homeBtn = document.getElementById("mnavHome");
+  const catBtn  = document.getElementById("mnavCat");
+  if (homeBtn) homeBtn.classList.toggle("active", name === "home" || name === "results");
+  if (catBtn)  catBtn.classList.toggle("active", name === "cat");
 }
 
 const FESTIVAL_WORDS = ["전주", "부산", "서울", "부천", "제주", "인디", "독립", "다큐", "iff", "독립영화"];
@@ -1107,6 +1303,38 @@ function renderSidebar() {
   });
 
   updateCatSel();
+  renderMobileCatList();
+}
+
+function renderMobileCatList() {
+  const list = document.getElementById("mobileCatList");
+  if (!list) return;
+  if (!categories.length) {
+    list.innerHTML = `<div style="padding:16px;font-size:0.72rem;color:var(--muted);font-family:var(--mono)">카테고리 없음</div>`;
+    return;
+  }
+  list.innerHTML = categories.map(c => `
+    <div class="cat-item${activeCatId === c.id ? " active" : ""}" data-id="${c.id}">
+      <span class="cat-chevron">▶</span>
+      <span class="cat-name">${c.name}</span>
+      <span class="cat-count">${c.movie_count || 0}</span>
+    </div>`).join("");
+  list.querySelectorAll(".cat-item").forEach(el => {
+    el.addEventListener("click", () => {
+      closeMobileCatSheet();
+      openCatView(el.dataset.id);
+    });
+  });
+}
+
+function openMobileCatSheet() {
+  document.getElementById("mobileCatSheet").classList.add("open");
+  document.getElementById("mobileScrim").classList.add("open");
+}
+
+function closeMobileCatSheet() {
+  document.getElementById("mobileCatSheet").classList.remove("open");
+  document.getElementById("mobileScrim").classList.remove("open");
 }
 
 function updateCatSel() {
@@ -1652,6 +1880,33 @@ document.addEventListener("keydown", e => {
   else if (document.getElementById("dlgOverlay").classList.contains("open")) {
     document.getElementById("dlgOverlay").classList.remove("open");
   }
+});
+
+/* ── 모바일 탭바 ────────────────────────────── */
+document.getElementById("mnavHome")?.addEventListener("click", () => {
+  closeMobileCatSheet();
+  showScreen("home");
+});
+
+document.getElementById("mnavCat")?.addEventListener("click", () => {
+  renderMobileCatList();
+  openMobileCatSheet();
+});
+
+document.getElementById("mnavNewCat")?.addEventListener("click", () => {
+  closeMobileCatSheet();
+  document.getElementById("dlgOverlay").classList.add("open");
+  document.getElementById("dlgInput").value = "";
+  requestAnimationFrame(() => document.getElementById("dlgInput").focus());
+});
+
+document.getElementById("mobileCatSheetClose")?.addEventListener("click", closeMobileCatSheet);
+document.getElementById("mobileScrim")?.addEventListener("click", closeMobileCatSheet);
+document.getElementById("mobileNewCatInSheet")?.addEventListener("click", () => {
+  closeMobileCatSheet();
+  document.getElementById("dlgOverlay").classList.add("open");
+  document.getElementById("dlgInput").value = "";
+  requestAnimationFrame(() => document.getElementById("dlgInput").focus());
 });
 
 /* ── 초기화 ────────────────────────────────── */
