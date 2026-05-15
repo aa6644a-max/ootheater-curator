@@ -27,6 +27,10 @@ async function enrichRow(row, sbHeaders) {
   let changed = false;
 
   // URL 수정은 API 호출 없이 항상 즉시 적용
+  if (m.poster_url) {
+    const fixed = fixUrl(m.poster_url);
+    if (fixed !== m.poster_url) { m.poster_url = fixed; changed = true; }
+  }
   if (m.stills?.length) {
     const fixed = m.stills.map(fixUrl);
     if (fixed.some((u, i) => u !== m.stills[i])) { m.stills = fixed; changed = true; }

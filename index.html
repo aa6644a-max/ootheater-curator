@@ -2108,9 +2108,12 @@ function posterPlaceholder(title) {
     `</div>`;
 }
 
+/* ── http → https URL 정규화 ─────────────── */
+const toHttps = url => url ? url.replace(/^http:\/\//i, "https://") : url;
+
 /* ── 카드 HTML ─────────────────────────────── */
 function cardHTML(m, inCat, rowId = "") {
-  const thumbSrc = m.poster_url || (m.stills && m.stills[0]) || "";
+  const thumbSrc = toHttps(m.poster_url || (m.stills && m.stills[0]) || "");
   const titleAttr = (m.title || "").replace(/"/g, "&quot;");
   const img = thumbSrc
     ? `<img src="${thumbSrc}" alt="" loading="lazy" data-title="${titleAttr}" onerror="this.outerHTML=posterPlaceholder(this.dataset.title)">`
@@ -2284,7 +2287,7 @@ function showDetail(m) {
   document.getElementById("detailBackTitle").textContent = m.title || "";
 
   // 포스터
-  const posterSrc  = m.poster_url || (m.stills && m.stills[0]) || "";
+  const posterSrc  = toHttps(m.poster_url || (m.stills && m.stills[0]) || "");
   const titleAttr  = (m.title || "").replace(/"/g, "&quot;");
   const posterHTML = posterSrc
     ? `<img src="${posterSrc}" alt="" data-title="${titleAttr}" onerror="this.outerHTML=posterPlaceholder(this.dataset.title)">`
@@ -2406,8 +2409,9 @@ function showDetail(m) {
   const row      = document.getElementById(stillsContainerId);
   const stillsWrap = document.getElementById(stillsWrapId);
   const renderStills = (urls) => {
+    const safeUrls = urls.map(toHttps);
     const existing = new Set([...row.querySelectorAll("img")].map(i => i.src));
-    const fresh = urls.filter(u => !existing.has(u));
+    const fresh = safeUrls.filter(u => !existing.has(u));
     if (!fresh.length) return;
     fresh.forEach(s => {
       const img = document.createElement("img");
