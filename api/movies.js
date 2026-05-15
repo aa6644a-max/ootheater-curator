@@ -313,12 +313,10 @@ function mergeRecord(tmdb, kmdb, kofic) {
     plot:        (t?.plot && t.plot.length > 10 ? t.plot : "") || k?.plot || "",
     keywords:    k?.keywords?.length ? k.keywords : [],
     actors:      t?.actors?.length   ? t.actors   : (k?.actors || []),
-    stills:      [...(k?.stills || []), ...(t?.backdrop ? [t.backdrop] : [])],
+    // stills·staff·companies는 목록 응답에서 제외 — 상세 보기 시 /api/images 로 로드
     titleEng:    k?.titleEng    || "",
     ratingGrade: k?.ratingGrade || "",
-    companies:   k?.companies?.length ? k.companies : [],
-    awards:      k?.awards?.length    ? k.awards    : [],
-    staff:       k?.staff?.length     ? k.staff     : [],
+    awards:      k?.awards?.length ? k.awards : [],
   };
 
   return merged;
@@ -349,11 +347,11 @@ module.exports = async function handler(req, res) {
     if (searchBy === "actor" && q) {
       // 배우 검색: TMDB 배우 출연작 + KMDb actor 파라미터
       [tmdbItems, kmdbItems, koficList] = await Promise.all([
-        tmdbActorSearch(q, tmdbKey, 30),
+        tmdbActorSearch(q, tmdbKey, 20),
         (async () => {
           const p = new URLSearchParams({
             ServiceKey: kmdbKey, detail: "Y", collection: "kmdb_new2",
-            actor: q, startCount: "0", listCount: "50",
+            actor: q, startCount: "0", listCount: "20",
           });
           try {
             const r = await fetch(`${KMDB_BASE}?${p}`);
@@ -366,15 +364,15 @@ module.exports = async function handler(req, res) {
     } else if (searchBy === "keyword" && q) {
       // 키워드 검색: KMDb 전체필드 query + TMDB 제목 검색 병행
       [tmdbItems, kmdbItems, koficList] = await Promise.all([
-        tmdbSearch(q, tmdbKey, 30),
-        kmdbQuery(q, "", kmdbKey, 50, "query"),
+        tmdbSearch(q, tmdbKey, 20),
+        kmdbQuery(q, "", kmdbKey, 20, "query"),
         Promise.resolve([]),
       ]);
     } else {
       // 제목 / 감독 검색 (기존 로직)
       [tmdbItems, kmdbItems, koficList] = await Promise.all([
-        q ? tmdbSearch(q, tmdbKey, 30) : tmdbDirectorSearch(director, tmdbKey, 30, tmdbMovieId || null),
-        kmdbQuery(q, director, kmdbKey, 50, searchBy),
+        q ? tmdbSearch(q, tmdbKey, 20) : tmdbDirectorSearch(director, tmdbKey, 20, tmdbMovieId || null),
+        kmdbQuery(q, director, kmdbKey, 20, searchBy),
         koficSearch(q, director, koficKey),
       ]);
     }
@@ -500,7 +498,7 @@ module.exports = async function handler(req, res) {
       const r    = await fetch(`${TMDB_BASE}/discover/movie?${discoverParams}`);
       const data = await r.json();
       total   = data.total_results || 0;
-      results = (data.results || []).map(item => parseTMDb(item));
+      results = (data.results || []).slice(0, 12).map(item => parseTMDb(item));
     } catch (err) {
       return res.status(502).json({ error: "TMDB API 오류", detail: err.message });
     }

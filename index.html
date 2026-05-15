@@ -2270,16 +2270,11 @@ function openModal(m) {
     stillEl.style.display = "";
   };
 
-  if (stills.length) {
-    stillEl.style.display = "";
-    row.innerHTML = "";
-    renderStills(stills);
-  } else {
-    stillEl.style.display = "none";
-    row.innerHTML = "";
-  }
+  // stills는 목록 API에서 제외됨 — TMDB /api/images 로만 로드
+  stillEl.style.display = "none";
+  row.innerHTML = "";
+  if (stills.length) renderStills(stills); // 혹시 캐시된 데이터에 stills가 있으면 표시
 
-  // TMDB 스틸컷 추가 비동기 로드
   if (m.tmdb_id) {
     apiGet(`/api/images?tmdbId=${m.tmdb_id}`)
       .then(data => { if (data.stills?.length) renderStills(data.stills); })
