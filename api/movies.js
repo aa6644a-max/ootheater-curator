@@ -394,12 +394,15 @@ module.exports = async function handler(req, res) {
   }
 
   /* ════ 브라우징 모드 ════════════════════════ */
+  const BROWSE_SIZE = 10; // 10편 × (TMDB+KMDb) = 20개 병렬 호출
+
   const koficParams = new URLSearchParams({
     key:           koficKey,
     curPage:       page,
-    itemPerPage:   "20",
+    itemPerPage:   String(BROWSE_SIZE),
     prdtStartYear: yearFrom || "2020",
     prdtEndYear:   yearTo   || "2026",
+    movieTypeCd:   "204104", // 독립영화
   });
   if (genre) koficParams.set("genreNm", genre);
 
@@ -414,9 +417,31 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ error: "KOFIC API 오류", detail: err.message });
   }
 
-  // KOFIC 기본 데이터만 반환 — 상세 보강은 모달 열 때 수행
-  const results = koficMovies.map(m => parseKOFIC(m)).filter(m => m.title);
+  // TMDB + KMDb 병렬 보강 — 포스터·줄거리·배우 획득
+  const enriched = await Promise.allSettled(
+    koficMovies.map(async koficRaw => {
+      const base = parseKOFIC(koficRaw);
+      if (!base.title) return base;
+      try {
+        const [tmdbItems, kmdbItems] = await Promise.all([
+          tmdbSearch(base.title, tmdbKey, 5),
+          kmdbQuery(base.title, base.director, kmdbKey, 3, "title"),
+        ]);
+        const tmdb = tmdbItems.find(t => yearClose((t.release_date || "").substring(0, 4), base.year))
+                  || tmdbItems[0] || null;
+        const kmdb = kmdbItems.find(k => yearClose(k.prodYear, base.year))
+                  || kmdbItems[0] || null;
+        return mergeRecord(tmdb, kmdb, koficRaw);
+      } catch {
+        return base;
+      }
+    })
+  );
 
-  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+  const results = enriched
+    .map(r => r.status === "fulfilled" ? r.value : null)
+    .filter(m => m?.title);
+
+  res.setHeader("Cache-Control", "s-maxage=1800, stale-while-revalidate=3600");
   res.json({ results, total, page: parseInt(page) });
 };

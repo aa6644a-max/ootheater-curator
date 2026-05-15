@@ -1156,7 +1156,7 @@ body {
   <!-- 홈 검색 화면 -->
   <div id="homeScreen">
     <div class="home-title">오오극장 큐레이터</div>
-    <div class="home-sub">영화를 검색하고 기획전 카테고리에 추가하세요</div>
+    <div class="home-sub">영화를 검색하거나, 연도 필터만 설정 후 검색하면 전체 목록을 볼 수 있습니다</div>
     <div class="home-search-row">
       <div class="search-type" id="homeSearchType">
         <button class="active" data-type="title">제목</button>
@@ -1431,6 +1431,9 @@ let allCatMovies     = [];
 let allCatRows       = [];
 let catPage          = 1;
 const PAGE_SIZE      = 12;
+let browseMode       = false; // 연도 브라우징 모드 여부
+let browseTotalCount = 0;     // 서버 전체 건수
+let browsePageNum    = 1;     // 현재 서버 페이지
 
 /* ── 유틸 ──────────────────────────────────── */
 let toastTimer;
@@ -2092,9 +2095,87 @@ document.getElementById("dlgInput").addEventListener("keydown", e => {
   if (e.key === "Escape") document.getElementById("dlgCancel").click();
 });
 
+/* ── 연도 브라우징 ──────────────────────────── */
+async function runBrowse(page = 1) {
+  if (!filterYearFrom && !filterYearTo) {
+    toast("연도 필터를 먼저 설정해주세요", "err");
+    return;
+  }
+  browseMode    = true;
+  browsePageNum = page;
+  showScreen("results");
+
+  const grid = document.getElementById("resGrid");
+  grid.innerHTML = `<div class="empty"><div class="spinner"></div>영화 목록 불러오는 중…</div>`;
+  document.getElementById("resStat").textContent = "";
+  document.getElementById("pagination").innerHTML = "";
+
+  const params = new URLSearchParams({ page: String(page) });
+  if (filterYearFrom) params.set("yearFrom", filterYearFrom);
+  if (filterYearTo)   params.set("yearTo",   filterYearTo);
+  if (filterGenre)    params.set("genre",     filterGenre);
+
+  try {
+    const data = await apiGet(`/api/movies?${params}`);
+    browseTotalCount = data.total || 0;
+    allSearchResults = data.results || [];
+    filteredResults  = applyFilters(allSearchResults);
+    searchPage = 1;
+    updateAdvToggleLabel();
+
+    const yearLabel = filterYearFrom === filterYearTo
+      ? `${filterYearFrom}년`
+      : `${filterYearFrom || "~"}–${filterYearTo || "~"}년`;
+    document.getElementById("resStat").textContent =
+      `${yearLabel} 독립영화 ${browseTotalCount}편 중 ${page}페이지`;
+
+    renderSearchPage();
+    renderBrowsePagination();
+  } catch {
+    grid.innerHTML = `<div class="empty">불러오기 실패</div>`;
+  }
+}
+
+function renderBrowsePagination() {
+  const pg         = document.getElementById("pagination");
+  const totalPages = Math.ceil(browseTotalCount / 10);
+  if (totalPages <= 1) { pg.innerHTML = ""; return; }
+
+  const cur  = browsePageNum;
+  const show = new Set([1, totalPages,
+    cur - 2, cur - 1, cur, cur + 1, cur + 2
+  ].filter(p => p >= 1 && p <= totalPages));
+  const sorted = [...show].sort((a, b) => a - b);
+
+  let html = `<button class="pg-btn" id="bpPrev" ${cur === 1 ? "disabled" : ""}>←</button>`;
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) html += `<span class="pg-info">…</span>`;
+    html += `<button class="pg-btn${p === cur ? " active" : ""}" data-bpage="${p}">${p}</button>`;
+    prev = p;
+  }
+  html += `<button class="pg-btn" id="bpNext" ${cur === totalPages ? "disabled" : ""}>→</button>`;
+  pg.innerHTML = html;
+
+  pg.querySelectorAll("[data-bpage]").forEach(btn =>
+    btn.addEventListener("click", () => runBrowse(parseInt(btn.dataset.bpage)))
+  );
+  pg.querySelector("#bpPrev")?.addEventListener("click", () => runBrowse(cur - 1));
+  pg.querySelector("#bpNext")?.addEventListener("click", () => runBrowse(cur + 1));
+}
+
 /* ── 검색 이벤트 ────────────────────────────── */
 function bindSearch(inputId, btnId) {
-  const run = () => doSearch(document.getElementById(inputId).value.trim());
+  const run = () => {
+    const q = document.getElementById(inputId).value.trim();
+    if (!q && (filterYearFrom || filterYearTo)) {
+      // 검색어 없음 + 연도 필터 → 브라우징 모드
+      runBrowse(1);
+    } else {
+      browseMode = false;
+      doSearch(q);
+    }
+  };
   document.getElementById(btnId).addEventListener("click", run);
   document.getElementById(inputId).addEventListener("keydown", e => { if (e.key === "Enter") run(); });
 }
