@@ -1164,15 +1164,39 @@ body {
 @media (max-width: 640px) {
   .desktop-sidebar { display: none !important; }
 
+  /* 뷰 토글 숨김 — 모바일은 리스트 뷰 고정 */
+  .view-toggle { display: none !important; }
+
   .movie-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    padding: 12px 12px 80px;
+    grid-template-columns: 1fr;
+    grid-auto-rows: 72px;
+    gap: 4px;
+    padding: 8px 12px 80px;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+  .movie-grid .card {
+    flex-direction: row;
+    height: 72px;
+    overflow: hidden;
+  }
+  .movie-grid .card-poster {
+    width: 48px;
+    min-width: 48px;
+    height: 72px;
+    flex-shrink: 0;
+  }
+  .movie-grid .card-info {
+    justify-content: center;
+    padding: 0 14px;
+    background: none;
+    flex: 1;
+    min-width: 0;
+  }
+  .movie-grid .card-title { font-size: 0.86rem; }
+  .movie-grid .card-meta  { font-size: 0.72rem; }
 
   .main {
     height: 100svh;
