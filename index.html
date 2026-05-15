@@ -614,14 +614,22 @@ body {
 .card:hover { border-color: var(--accent); }
 
 .card-poster {
-  aspect-ratio: 2/3;
+  width: 100%;
+  padding-top: 150%;    /* 2:3 비율 고정 — padding-top은 부모 width 기준이라 신뢰성 높음 */
   background: var(--surface2);
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
-  width: 100%;
 }
-.card-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-poster img,
+.card-poster .no-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .no-poster {
   width: 100%; height: 100%;
   display: flex; flex-direction: column;
