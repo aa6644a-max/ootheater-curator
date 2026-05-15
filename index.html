@@ -512,7 +512,6 @@ body {
   overflow: hidden;
 }
 .movie-grid.list-view .card-poster {
-  aspect-ratio: unset;
   width: 48px;
   min-width: 48px;
   height: 72px;
@@ -615,20 +614,26 @@ body {
 
 .card-poster {
   width: 100%;
-  padding-top: 150%;    /* 2:3 비율 고정 — padding-top은 부모 width 기준이라 신뢰성 높음 */
+  height: 200px;        /* 고정 높이 — 이미지 비율과 무관하게 항상 동일 */
   background: var(--surface2);
   overflow: hidden;
-  position: relative;
   flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.card-poster img,
+.card-poster img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;  /* 박스 안에 이미지 전체 표시, 회색 여백 허용 */
+  display: block;
+}
 .card-poster .no-poster {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 .no-poster {
   width: 100%; height: 100%;
