@@ -1161,7 +1161,6 @@ body {
       <div class="search-type" id="homeSearchType">
         <button class="active" data-type="title">제목</button>
         <button data-type="director">감독</button>
-        <button data-type="keyword">키워드</button>
         <button data-type="actor">배우</button>
       </div>
       <div class="search-wrap home-search-input">
@@ -1237,7 +1236,6 @@ body {
       <div class="search-type" id="topSearchType">
         <button class="active" data-type="title">제목</button>
         <button data-type="director">감독</button>
-        <button data-type="keyword">키워드</button>
         <button data-type="actor">배우</button>
       </div>
       <div class="results-search">
@@ -1417,7 +1415,7 @@ body {
 let categories       = [];
 let activeCatId      = null;
 let currentMovie     = null;
-let searchType       = "title"; // "title" | "director" | "keyword" | "actor"
+let searchType       = "title"; // "title" | "director" | "actor"
 let allSearchResults = [];
 let filteredResults  = [];
 let searchPage       = 1;
@@ -1589,7 +1587,6 @@ function updateAdvToggleLabel() {
 const PH = {
   title:    "영화 제목으로 검색…",
   director: "감독 이름으로 검색…",
-  keyword:  "키워드로 검색… (예: 전주영화제, 여성, 이주)",
   actor:    "배우 이름으로 검색…",
 };
 function initSearchTypeToggle(groupId, inputId) {
