@@ -1599,6 +1599,10 @@ document.getElementById("dlgCancel").addEventListener("click", () => {
 document.getElementById("dlgOk").addEventListener("click", async () => {
   const name = document.getElementById("dlgInput").value.trim();
   if (!name) return;
+  const btn = document.getElementById("dlgOk");
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = "생성 중…";
   try {
     const [cat] = await apiPost("/api/categories", { name });
     categories.push({ ...cat, movie_count: 0 });
@@ -1606,6 +1610,10 @@ document.getElementById("dlgOk").addEventListener("click", async () => {
     document.getElementById("dlgOverlay").classList.remove("open");
     toast(`"${name}" 생성됨`);
   } catch (e) { toast(`생성 실패: ${e.message}`, "err"); }
+  finally {
+    btn.disabled = false;
+    btn.textContent = "만들기";
+  }
 });
 
 document.getElementById("dlgInput").addEventListener("keydown", e => {
