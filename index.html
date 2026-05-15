@@ -2543,6 +2543,12 @@ document.getElementById("dlgInput").addEventListener("keydown", e => {
 
 /* ── 연도 브라우징 ──────────────────────────── */
 async function runBrowse(page = 1) {
+  // 실행 시점에 DOM에서 직접 읽기 (전역 변수 타이밍 문제 완전 우회)
+  const domFrom = (document.getElementById("hfYearFrom")?.value || document.getElementById("fYearFrom")?.value || "").trim();
+  const domTo   = (document.getElementById("hfYearTo")?.value   || document.getElementById("fYearTo")?.value   || "").trim();
+  if (domFrom) filterYearFrom = domFrom;
+  if (domTo)   filterYearTo   = domTo;
+
   if (!filterYearFrom && !filterYearTo) {
     toast("연도 필터를 먼저 설정해주세요", "err");
     return;
@@ -2613,15 +2619,14 @@ function renderBrowsePagination() {
 /* ── 검색 이벤트 ────────────────────────────── */
 function bindSearch(inputId, btnId) {
   const run = () => {
-    // change 이벤트 타이밍 문제 방지 — 클릭 시점에 DOM 값 직접 읽기
-    filterYearFrom = document.getElementById("hfYearFrom")?.value.trim()
-                  || document.getElementById("fYearFrom")?.value.trim()
-                  || filterYearFrom;
-    filterYearTo   = document.getElementById("hfYearTo")?.value.trim()
-                  || document.getElementById("fYearTo")?.value.trim()
-                  || filterYearTo;
-
     const q = document.getElementById(inputId).value.trim();
+
+    // 연도 필터 값을 DOM에서 직접 읽어 즉시 반영
+    const yearFrom = (document.getElementById("hfYearFrom")?.value || document.getElementById("fYearFrom")?.value || "").trim();
+    const yearTo   = (document.getElementById("hfYearTo")?.value   || document.getElementById("fYearTo")?.value   || "").trim();
+    if (yearFrom) filterYearFrom = yearFrom;
+    if (yearTo)   filterYearTo   = yearTo;
+
     if (!q && (filterYearFrom || filterYearTo)) {
       runBrowse(1);
     } else {
