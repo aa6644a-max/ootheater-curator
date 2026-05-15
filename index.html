@@ -2613,9 +2613,16 @@ function renderBrowsePagination() {
 /* ── 검색 이벤트 ────────────────────────────── */
 function bindSearch(inputId, btnId) {
   const run = () => {
+    // change 이벤트 타이밍 문제 방지 — 클릭 시점에 DOM 값 직접 읽기
+    filterYearFrom = document.getElementById("hfYearFrom")?.value.trim()
+                  || document.getElementById("fYearFrom")?.value.trim()
+                  || filterYearFrom;
+    filterYearTo   = document.getElementById("hfYearTo")?.value.trim()
+                  || document.getElementById("fYearTo")?.value.trim()
+                  || filterYearTo;
+
     const q = document.getElementById(inputId).value.trim();
     if (!q && (filterYearFrom || filterYearTo)) {
-      // 검색어 없음 + 연도 필터 → 브라우징 모드
       runBrowse(1);
     } else {
       browseMode = false;
