@@ -1339,6 +1339,37 @@ body {
     line-height: 1;
     padding: 2px 6px;
   }
+  .mobile-cat-edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-family: var(--mono);
+    cursor: pointer;
+    padding: 3px 10px;
+    border-radius: 3px;
+    transition: all var(--ease);
+    margin-right: 6px;
+  }
+  .mobile-cat-edit-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .cat-order-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color var(--ease);
+    display: none;
+  }
+  .cat-order-btn:active { color: var(--accent); }
+  .cat-order-btn:disabled { opacity: 0.2; cursor: default; }
+  .mobile-cat-edit-mode .cat-order-btn { display: block; }
   .mobile-cat-list { flex: 1; overflow-y: auto; }
   .mobile-cat-list::-webkit-scrollbar { width: 3px; }
   .mobile-cat-list::-webkit-scrollbar-thumb { background: var(--border); }
@@ -1641,6 +1672,7 @@ body {
 <div class="mobile-cat-sheet" id="mobileCatSheet">
   <div class="mobile-cat-sheet-head">
     <span class="mobile-cat-sheet-title">내 카테고리</span>
+    <button class="mobile-cat-edit-btn" id="mobileCatEditBtn">편집</button>
     <button class="mobile-cat-sheet-close" id="mobileCatSheetClose">✕</button>
   </div>
   <div class="mobile-cat-list" id="mobileCatList"></div>
@@ -1727,8 +1759,9 @@ let browseTotalCount = 0;     // 서버 전체 건수
 let browsePageNum    = 1;     // 현재 서버 페이지
 let viewMode         = "grid"; // "grid" | "list"
 let detailFromScreen = "results"; // 상세 페이지 진입 전 화면
-let detailList       = []; // 상세 페이지 네비게이션용 전체 목록
-let detailIndex      = -1; // 현재 영화의 목록 내 인덱스
+let detailList         = []; // 상세 페이지 네비게이션용 전체 목록
+let detailIndex        = -1; // 현재 영화의 목록 내 인덱스
+let mobileCatEditMode  = false; // 모바일 카테고리 편집(순서변경) 모드
 
 /* ── 유틸 ──────────────────────────────────── */
 let toastTimer;
@@ -1861,20 +1894,46 @@ function renderSidebar() {
 function renderMobileCatList() {
   const list = document.getElementById("mobileCatList");
   if (!list) return;
+
+  // 편집 모드 클래스 동기화
+  list.classList.toggle("mobile-cat-edit-mode", mobileCatEditMode);
+  const editBtn = document.getElementById("mobileCatEditBtn");
+  if (editBtn) editBtn.classList.toggle("active", mobileCatEditMode);
+
   if (!categories.length) {
     list.innerHTML = `<div style="padding:16px;font-size:0.72rem;color:var(--muted);font-family:var(--mono)">카테고리 없음</div>`;
     return;
   }
-  list.innerHTML = categories.map(c => `
+  list.innerHTML = categories.map((c, i) => `
     <div class="cat-item${activeCatId === c.id ? " active" : ""}" data-id="${c.id}">
+      <button class="cat-order-btn" data-move="up" data-idx="${i}" ${i === 0 ? "disabled" : ""}>▲</button>
+      <button class="cat-order-btn" data-move="down" data-idx="${i}" ${i === categories.length - 1 ? "disabled" : ""}>▼</button>
       <span class="cat-chevron">▶</span>
       <span class="cat-name">${c.name}</span>
       <span class="cat-count">${c.movie_count || 0}</span>
     </div>`).join("");
+
   list.querySelectorAll(".cat-item").forEach(el => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", e => {
+      if (e.target.closest(".cat-order-btn")) return;
+      if (mobileCatEditMode) return;
       closeMobileCatSheet();
       openCatView(el.dataset.id);
+    });
+  });
+
+  list.querySelectorAll(".cat-order-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      const dir = btn.dataset.move;
+      const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= categories.length) return;
+      [categories[idx], categories[swapIdx]] = [categories[swapIdx], categories[idx]];
+      saveCatOrder();
+      renderMobileCatList();
+      renderSidebar();
+      updateCatSel();
     });
   });
 }
@@ -1885,6 +1944,7 @@ function openMobileCatSheet() {
 }
 
 function closeMobileCatSheet() {
+  mobileCatEditMode = false;
   document.getElementById("mobileCatSheet").classList.remove("open");
   document.getElementById("mobileScrim").classList.remove("open");
 }
@@ -2894,6 +2954,10 @@ document.getElementById("mnavNewCat")?.addEventListener("click", () => {
 });
 
 document.getElementById("mobileCatSheetClose")?.addEventListener("click", closeMobileCatSheet);
+document.getElementById("mobileCatEditBtn")?.addEventListener("click", () => {
+  mobileCatEditMode = !mobileCatEditMode;
+  renderMobileCatList();
+});
 document.getElementById("mobileScrim")?.addEventListener("click", closeMobileCatSheet);
 document.getElementById("mobileNewCatInSheet")?.addEventListener("click", () => {
   closeMobileCatSheet();
