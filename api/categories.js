@@ -11,12 +11,15 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const TMDB_KEY     = process.env.TMDB_API_KEY || "";
+const TMDB_KEY     = process.env.TMDB_API_KEY  || "";
 const KMDB_KEY     = process.env.KMDB_API_KEY  || "";
+const KOFIC_KEY    = process.env.KOFIC_API_KEY || "";
 const TMDB_IMG     = "https://image.tmdb.org/t/p/w500";
 const KMDB_BASE    = "https://api.koreafilm.or.kr/openapi-data2/wisenut/search_api/search_json2.jsp";
+const KOFIC_BASE   = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/movie/searchMovieList.json";
 
-const fixUrl = u => u.replace(/^http:\/\//i, "https://").replace(/\/img\//g, "/thm/");
+const fixUrl  = u => u.replace(/^http:\/\//i, "https://").replace(/\/img\//g, "/thm/");
+const cleanStr = s => (s || "").replace(/!HS\s?|!HE\s?/g, "").trim();
 const ENRICH_TTL = 7 * 24 * 60 * 60 * 1000; // 7일
 
 /* ── 카테고리 영화 데이터 자동 보강 + Supabase 캐시 업데이트 ── */
@@ -49,8 +52,10 @@ async function enrichRow(row, sbHeaders) {
     return m;
   }
 
-  // TMDB 보강 — 포스터 또는 tmdb_id 누락 시
-  if ((!m.poster_url || !m.tmdb_id) && TMDB_KEY) {
+  // TTL 만료 → 전체 필드 최신화 (누락 여부와 무관하게 항상 갱신)
+
+  // TMDB — 포스터, 줄거리, tmdb_id 갱신
+  if (TMDB_KEY) {
     try {
       const p = new URLSearchParams({ api_key: TMDB_KEY, query: m.title, language: "ko-KR", region: "KR" });
       const res  = await fetch(`https://api.themoviedb.org/3/search/movie?${p}`);
@@ -59,15 +64,15 @@ async function enrichRow(row, sbHeaders) {
         .filter(r => r.original_language === "ko")
         .find(r => Math.abs(parseInt((r.release_date || "").substring(0, 4)) - parseInt(m.year)) <= 1);
       if (match) {
-        if (!m.poster_url && match.poster_path) { m.poster_url = `${TMDB_IMG}${match.poster_path}`; changed = true; }
-        if (!m.plot && match.overview)           { m.plot = match.overview; changed = true; }
-        if (!m.tmdb_id && match.id)              { m.tmdb_id = match.id;   changed = true; }
+        if (match.poster_path) { m.poster_url = `${TMDB_IMG}${match.poster_path}`; changed = true; }
+        if (match.overview)    { m.plot = match.overview; changed = true; }
+        if (match.id)          { m.tmdb_id = match.id;   changed = true; }
       }
     } catch {}
   }
 
-  // KMDb 스틸컷 보강 — stills 비어있을 때
-  if (!m.stills?.length && KMDB_KEY) {
+  // KMDb — 스틸컷, 키워드, 감독, 러닝타임, 줄거리(TMDB 없을 때) 갱신
+  if (KMDB_KEY) {
     try {
       const p = new URLSearchParams({
         ServiceKey: KMDB_KEY, detail: "Y", collection: "kmdb_new2",
@@ -81,15 +86,57 @@ async function enrichRow(row, sbHeaders) {
       const hit = results.find(item =>
         !m.year || Math.abs(parseInt(item.prodYear) - parseInt(m.year)) <= 1
       );
-      if (hit?.stlls) {
-        const stills = hit.stlls.split("|").slice(0, 8).filter(Boolean).map(fixUrl);
-        if (stills.length) { m.stills = stills; changed = true; }
+      if (hit) {
+        if (hit.stlls) {
+          const stills = hit.stlls.split("|").slice(0, 8).filter(Boolean).map(fixUrl);
+          if (stills.length) { m.stills = stills; changed = true; }
+        }
+        if (hit.keywords) {
+          const kws = hit.keywords.split("|").map(cleanStr).filter(Boolean);
+          if (kws.length) { m.keywords = kws; changed = true; }
+        }
+        if (!m.poster_url && hit.posters) {
+          const poster = fixUrl(hit.posters.split("|")[0]);
+          if (poster) { m.poster_url = poster; changed = true; }
+        }
+        if (!m.plot && hit.plots?.plot) {
+          const plots = hit.plots.plot;
+          const plotText = plots.find(p => p.plotLang === "한국어")?.plotText || plots[0]?.plotText || "";
+          if (plotText) { m.plot = cleanStr(plotText); changed = true; }
+        }
+        const directorList = hit.directors?.director || [];
+        const director = directorList.map(d => cleanStr(d.directorNm)).filter(Boolean).join(", ");
+        if (director) { m.director = director; changed = true; }
+        const rt = parseInt(hit.runtime);
+        if (!isNaN(rt) && rt > 0) { m.runtime = rt; changed = true; }
+      }
+    } catch {}
+  }
+
+  // KOFIC — 개봉상태(status), 장르(genre), 타입(type) 갱신
+  if (KOFIC_KEY) {
+    try {
+      const p = new URLSearchParams({ key: KOFIC_KEY, curPage: "1", itemPerPage: "5", movieNm: m.title });
+      const firstDir = (m.director || "").split(",")[0].trim();
+      if (firstDir) p.set("directorNm", firstDir);
+      const r    = await fetch(`${KOFIC_BASE}?${p}`);
+      const data = await r.json();
+      const list = (data.movieListResult?.movieList || [])
+        .filter(item => (item.repNationNm || "").includes("한국"));
+      const hit = list.find(item =>
+        !m.year || Math.abs(parseInt(item.prdtYear) - parseInt(m.year)) <= 1
+      ) || list[0];
+      if (hit) {
+        if (hit.prdtStatNm) { m.status = hit.prdtStatNm; changed = true; }
+        if (hit.repGenreNm) { m.genre  = hit.repGenreNm; changed = true; }
+        if (hit.typeNm)     { m.type   = hit.typeNm;     changed = true; }
       }
     } catch {}
   }
 
   // 보강 완료 시각 기록
   m.enriched_at = new Date().toISOString();
+  changed = true;
 
   // 변경 사항 Supabase에 비동기 캐시 업데이트
   fetch(`${SUPABASE_URL}/rest/v1/category_movies?id=eq.${row.id}`, {
