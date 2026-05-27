@@ -502,19 +502,19 @@ body {
 /* ── 리스트 뷰 ── */
 .movie-grid.list-view {
   grid-template-columns: 1fr;
-  grid-auto-rows: 72px;
+  grid-auto-rows: 144px;
   gap: 4px;
   padding: 10px 20px 20px;
 }
 .movie-grid.list-view .card {
   flex-direction: row;
-  height: 72px;
+  height: 144px;
   overflow: hidden;
 }
 .movie-grid.list-view .card-poster {
-  width: 48px;
-  min-width: 48px;
-  height: 72px;
+  width: 96px;
+  min-width: 96px;
+  height: 144px;
   flex-shrink: 0;
 }
 .movie-grid.list-view .card-info {
@@ -1297,7 +1297,7 @@ body {
 
   .movie-grid {
     grid-template-columns: 1fr;
-    grid-auto-rows: 72px;
+    grid-auto-rows: 144px;
     gap: 4px;
     padding: 8px 12px 80px;
     flex: 1;
@@ -1305,8 +1305,8 @@ body {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
-  .movie-grid .card { flex-direction: row; height: 72px; overflow: hidden; }
-  .movie-grid .card-poster { width: 48px; min-width: 48px; height: 72px; flex-shrink: 0; }
+  .movie-grid .card { flex-direction: row; height: 144px; overflow: hidden; }
+  .movie-grid .card-poster { width: 96px; min-width: 96px; height: 144px; flex-shrink: 0; }
   .movie-grid .card-info { justify-content: center; padding: 0 14px; background: none; flex: 1; min-width: 0; }
   .movie-grid .card-title { font-size: 0.86rem; }
   .movie-grid .card-meta  { font-size: 0.72rem; }
@@ -1487,14 +1487,6 @@ body {
         <button id="topBtn">검색</button>
       </div>
       <button class="adv-toggle" id="advToggle">필터 ▾</button>
-      <div class="view-toggle" id="viewToggle">
-        <button class="vt-btn active" data-view="grid" title="그리드">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6"/><rect x="8" y="0" width="6" height="6"/><rect x="0" y="8" width="6" height="6"/><rect x="8" y="8" width="6" height="6"/></svg>
-        </button>
-        <button class="vt-btn" data-view="list" title="리스트">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2"/><rect x="0" y="6" width="14" height="2"/><rect x="0" y="11" width="14" height="2"/></svg>
-        </button>
-      </div>
       <div class="results-stat" id="resStat"></div>
     </div>
     <div class="adv-panel" id="advPanel">
@@ -1565,14 +1557,6 @@ body {
       <button class="btn-back" id="catBackBtn">← 홈</button>
       <div class="cat-bar-title" id="catBarTitle"></div>
       <div class="cat-bar-count" id="catBarCount"></div>
-      <div class="view-toggle" id="catViewToggle">
-        <button class="vt-btn active" data-view="grid" title="그리드">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6"/><rect x="8" y="0" width="6" height="6"/><rect x="0" y="8" width="6" height="6"/><rect x="8" y="8" width="6" height="6"/></svg>
-        </button>
-        <button class="vt-btn" data-view="list" title="리스트">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2"/><rect x="0" y="6" width="14" height="2"/><rect x="0" y="11" width="14" height="2"/></svg>
-        </button>
-      </div>
     </div>
     <div class="movie-grid" id="catGrid"></div>
     <div class="pagination" id="catPagination"></div>
@@ -1704,7 +1688,7 @@ const PAGE_SIZE      = 12;
 let browseMode       = false; // 연도 브라우징 모드 여부
 let browseTotalCount = 0;     // 서버 전체 건수
 let browsePageNum    = 1;     // 현재 서버 페이지
-let viewMode         = "grid"; // "grid" | "list"
+let viewMode         = "list"; // "list" 고정
 let detailFromScreen = "results"; // 상세 페이지 진입 전 화면
 let detailList         = []; // 상세 페이지 네비게이션용 전체 목록
 let detailIndex        = -1; // 현재 영화의 목록 내 인덱스
@@ -2765,20 +2749,6 @@ function setViewMode(mode) {
   document.querySelectorAll(".movie-grid").forEach(g => g.classList.toggle("list-view", viewMode === "list"));
 }
 
-document.getElementById("viewToggle").addEventListener("click", e => {
-  const btn = e.target.closest(".vt-btn");
-  if (!btn || btn.dataset.view === viewMode) return;
-  setViewMode(btn.dataset.view);
-  if (document.getElementById("resultsScreen").style.display !== "none") renderSearchPage();
-  else if (document.getElementById("catScreen").style.display !== "none") renderCatPage();
-});
-
-document.getElementById("catViewToggle").addEventListener("click", e => {
-  const btn = e.target.closest(".vt-btn");
-  if (!btn || btn.dataset.view === viewMode) return;
-  setViewMode(btn.dataset.view);
-  renderCatPage();
-});
 
 /* ── 뒤로가기 ──────────────────────────────── */
 document.getElementById("backBtn").addEventListener("click", () => {
@@ -2916,6 +2886,7 @@ document.getElementById("mobileNewCatInSheet")?.addEventListener("click", () => 
 /* ── 초기화 ────────────────────────────────── */
 showScreen("home");
 loadCategories();
+setViewMode("list");
 </script>
 </body>
 </html>
