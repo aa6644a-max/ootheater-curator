@@ -1366,6 +1366,38 @@ body {
   .desktop-sidebar { display: flex; }
   .movie-grid { grid-template-columns: repeat(4, 1fr); }
 }
+
+/* ── 카테고리 드래그 핸들 & 드롭 오버 ── */
+.cat-drag-handle {
+  color: var(--muted);
+  font-size: 0.65rem;
+  opacity: 0;
+  transition: opacity var(--ease);
+  flex-shrink: 0;
+  cursor: grab;
+  line-height: 1;
+  letter-spacing: -1px;
+  user-select: none;
+}
+.cat-item:hover .cat-drag-handle { opacity: 0.45; }
+.cat-item.drag-over { background: var(--surface2); outline: 1px dashed var(--accent2); }
+
+/* ── 상세 페이지 이전/다음 버튼 ── */
+.detail-nav-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 6px 14px;
+  font-size: 0.76rem;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--mono);
+  transition: all var(--ease);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.detail-nav-btn:hover:not(:disabled) { color: var(--text); border-color: var(--text); }
+.detail-nav-btn:disabled { opacity: 0.22; cursor: default; }
 </style>
 </head>
 <body>
@@ -1555,6 +1587,14 @@ body {
       <button class="btn-back" id="catBackBtn">← 홈</button>
       <div class="cat-bar-title" id="catBarTitle"></div>
       <div class="cat-bar-count" id="catBarCount"></div>
+      <div class="view-toggle" id="catViewToggle">
+        <button class="vt-btn active" data-view="grid" title="그리드">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6"/><rect x="8" y="0" width="6" height="6"/><rect x="0" y="8" width="6" height="6"/><rect x="8" y="8" width="6" height="6"/></svg>
+        </button>
+        <button class="vt-btn" data-view="list" title="리스트">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2"/><rect x="0" y="6" width="14" height="2"/><rect x="0" y="11" width="14" height="2"/></svg>
+        </button>
+      </div>
     </div>
     <div class="movie-grid" id="catGrid"></div>
     <div class="pagination" id="catPagination"></div>
@@ -1565,6 +1605,8 @@ body {
     <div class="detail-back-bar">
       <button class="btn-back" id="detailBackBtn">← 뒤로</button>
       <div class="detail-back-title" id="detailBackTitle"></div>
+      <button class="detail-nav-btn" id="detailPrevBtn" disabled>‹ 이전</button>
+      <button class="detail-nav-btn" id="detailNextBtn" disabled>다음 ›</button>
     </div>
     <div class="detail-content" id="detailContent"></div>
   </div>
@@ -1685,6 +1727,8 @@ let browseTotalCount = 0;     // 서버 전체 건수
 let browsePageNum    = 1;     // 현재 서버 페이지
 let viewMode         = "grid"; // "grid" | "list"
 let detailFromScreen = "results"; // 상세 페이지 진입 전 화면
+let detailList       = []; // 상세 페이지 네비게이션용 전체 목록
+let detailIndex      = -1; // 현재 영화의 목록 내 인덱스
 
 /* ── 유틸 ──────────────────────────────────── */
 let toastTimer;
@@ -1709,6 +1753,25 @@ function showScreen(name) {
 
 const FESTIVAL_WORDS = ["전주", "부산", "서울", "부천", "제주", "인디", "독립", "다큐", "iff", "독립영화"];
 
+/* ── 카테고리 순서 (localStorage) ───────────── */
+function loadCatOrder() {
+  try { return JSON.parse(localStorage.getItem("oo_catOrder") || "[]"); } catch { return []; }
+}
+function saveCatOrder() {
+  localStorage.setItem("oo_catOrder", JSON.stringify(categories.map(c => c.id)));
+}
+function applyCatOrder() {
+  const order = loadCatOrder();
+  if (!order.length) return;
+  categories.sort((a, b) => {
+    const ai = order.indexOf(a.id), bi = order.indexOf(b.id);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}
+
 /* ── 카테고리 API ───────────────────────────── */
 async function apiGet(url)          { const r = await fetch(url); if (!r.ok) throw new Error(r.status); return r.json(); }
 async function apiPost(url, body)   { const r = await fetch(url, { method:"POST",  headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) }); if (!r.ok) { let msg = r.status; try { const d = await r.json(); msg = d.error || d.message || d.hint || JSON.stringify(d); } catch {} throw new Error(msg); } return r.json(); }
@@ -1717,6 +1780,7 @@ async function apiDelete(url)       { const r = await fetch(url, { method:"DELET
 async function loadCategories() {
   try {
     categories = await apiGet("/api/categories");
+    applyCatOrder();
     renderSidebar();
   } catch { /* 무시 */ }
 }
@@ -1730,17 +1794,46 @@ function renderSidebar() {
     return;
   }
   list.innerHTML = categories.map(c => `
-    <div class="cat-item${activeCatId === c.id ? " active" : ""}" data-id="${c.id}">
+    <div class="cat-item${activeCatId === c.id ? " active" : ""}" data-id="${c.id}" draggable="true">
+      <span class="cat-drag-handle">⠿⠿</span>
       <span class="cat-chevron">▶</span>
       <span class="cat-name">${c.name}</span>
       <span class="cat-count">${c.movie_count || 0}</span>
       <span class="cat-del" data-del="${c.id}">✕</span>
     </div>`).join("");
 
-  list.querySelectorAll(".cat-item").forEach(el => {
+  let dragSrcIdx = -1;
+
+  list.querySelectorAll(".cat-item").forEach((el, i) => {
     el.addEventListener("click", e => {
-      if (e.target.dataset.del) return;
+      if (e.target.dataset.del || e.target.classList.contains("cat-drag-handle")) return;
       openCatView(el.dataset.id);
+    });
+    el.addEventListener("dragstart", e => {
+      dragSrcIdx = i;
+      el.style.opacity = "0.45";
+      e.dataTransfer.effectAllowed = "move";
+    });
+    el.addEventListener("dragend", () => {
+      el.style.opacity = "";
+      list.querySelectorAll(".cat-item").forEach(x => x.classList.remove("drag-over"));
+    });
+    el.addEventListener("dragover", e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      list.querySelectorAll(".cat-item").forEach(x => x.classList.remove("drag-over"));
+      el.classList.add("drag-over");
+    });
+    el.addEventListener("dragleave", () => el.classList.remove("drag-over"));
+    el.addEventListener("drop", e => {
+      e.preventDefault();
+      el.classList.remove("drag-over");
+      if (dragSrcIdx === -1 || dragSrcIdx === i) return;
+      const moved = categories.splice(dragSrcIdx, 1)[0];
+      categories.splice(i, 0, moved);
+      saveCatOrder();
+      renderSidebar();
+      updateCatSel();
     });
   });
 
@@ -1753,6 +1846,7 @@ function renderSidebar() {
       try {
         await apiDelete(`/api/categories?id=${id}`);
         categories = categories.filter(c => c.id !== id);
+        saveCatOrder();
         if (activeCatId === id) { activeCatId = null; showScreen("home"); }
         renderSidebar();
         toast("카테고리 삭제됨");
@@ -1953,7 +2047,7 @@ function renderSearchPage() {
   const grid       = document.getElementById("resGrid");
 
   grid.innerHTML = pageItems.map(m => cardHTML(m, false)).join("");
-  bindCards(grid, pageItems, false);
+  bindCards(grid, pageItems, false, [], null, src, start);
   grid.scrollTop = 0;
 
   // 페이지네이션 UI
@@ -2095,7 +2189,7 @@ function renderCatPage() {
   const grid       = document.getElementById("catGrid");
 
   grid.innerHTML = pageItems.map((m, i) => cardHTML(m, true, pageRows[i].id)).join("");
-  bindCards(grid, pageItems, true, pageRows, activeCatId);
+  bindCards(grid, pageItems, true, pageRows, activeCatId, allCatMovies, start);
   grid.scrollTop = 0;
 
   const pg = document.getElementById("catPagination");
@@ -2163,11 +2257,12 @@ function cardHTML(m, inCat, rowId = "") {
 }
 
 /* ── 카드 이벤트 ───────────────────────────── */
-function bindCards(grid, movies, inCat, rows = [], catId = null) {
+function bindCards(grid, movies, inCat, rows = [], catId = null, fullList = [], startIdx = 0) {
   grid.querySelectorAll(".card").forEach((el, i) => {
     el.addEventListener("click", e => {
       if (e.target.closest(".card-rm")) return;
-      showDetail(movies[i]);
+      const list = fullList.length ? fullList : movies;
+      showDetail(movies[i], list, fullList.length ? startIdx + i : i);
     });
 
     const rm = el.querySelector(".card-rm");
@@ -2293,15 +2388,20 @@ function closeModal() {
 }
 
 /* ── 영화 상세 페이지 ───────────────────────── */
-function showDetail(m) {
+function showDetail(m, list = [], idx = -1, preserveFrom = false) {
+  detailList   = list;
+  detailIndex  = idx;
   currentMovie = m;
-  // 어느 화면에서 진입했는지 기억
-  if (document.getElementById("catScreen").style.display !== "none") {
-    detailFromScreen = "cat";
-  } else if (document.getElementById("resultsScreen").style.display !== "none") {
-    detailFromScreen = "results";
-  } else {
-    detailFromScreen = "home";
+
+  // 이전/다음 네비게이션으로 진입한 경우 from 화면 유지
+  if (!preserveFrom) {
+    if (document.getElementById("catScreen").style.display !== "none") {
+      detailFromScreen = "cat";
+    } else if (document.getElementById("resultsScreen").style.display !== "none") {
+      detailFromScreen = "results";
+    } else {
+      detailFromScreen = "home";
+    }
   }
 
   document.getElementById("detailBackTitle").textContent = m.title || "";
@@ -2471,6 +2571,12 @@ function showDetail(m) {
     }
   });
 
+  // 이전/다음 버튼 상태
+  const prevBtn = document.getElementById("detailPrevBtn");
+  const nextBtn = document.getElementById("detailNextBtn");
+  if (prevBtn) prevBtn.disabled = detailIndex <= 0;
+  if (nextBtn) nextBtn.disabled = detailIndex < 0 || detailIndex >= detailList.length - 1;
+
   showScreen("detail");
   document.getElementById("detailScreen").scrollTop = 0;
 }
@@ -2524,6 +2630,7 @@ document.getElementById("dlgOk").addEventListener("click", async () => {
   try {
     const [cat] = await apiPost("/api/categories", { name });
     categories.push({ ...cat, movie_count: 0 });
+    applyCatOrder();
     renderSidebar();
     document.getElementById("dlgOverlay").classList.remove("open");
     toast(`"${name}" 생성됨`);
@@ -2645,15 +2752,25 @@ initAdvPanel();
 initHomeFilters();
 
 /* ── 뷰 토글 ───────────────────────────────── */
+function setViewMode(mode) {
+  viewMode = mode;
+  document.querySelectorAll(".vt-btn").forEach(b => b.classList.toggle("active", b.dataset.view === viewMode));
+  document.querySelectorAll(".movie-grid").forEach(g => g.classList.toggle("list-view", viewMode === "list"));
+}
+
 document.getElementById("viewToggle").addEventListener("click", e => {
   const btn = e.target.closest(".vt-btn");
   if (!btn || btn.dataset.view === viewMode) return;
-  viewMode = btn.dataset.view;
-  document.querySelectorAll(".vt-btn").forEach(b => b.classList.toggle("active", b.dataset.view === viewMode));
-  document.querySelectorAll(".movie-grid").forEach(g => g.classList.toggle("list-view", viewMode === "list"));
-  // 새 카드 HTML(card-info 포함)로 재렌더링
+  setViewMode(btn.dataset.view);
   if (document.getElementById("resultsScreen").style.display !== "none") renderSearchPage();
   else if (document.getElementById("catScreen").style.display !== "none") renderCatPage();
+});
+
+document.getElementById("catViewToggle").addEventListener("click", e => {
+  const btn = e.target.closest(".vt-btn");
+  if (!btn || btn.dataset.view === viewMode) return;
+  setViewMode(btn.dataset.view);
+  renderCatPage();
 });
 
 /* ── 뒤로가기 ──────────────────────────────── */
@@ -2666,6 +2783,12 @@ document.getElementById("catBackBtn").addEventListener("click", () => {
 document.getElementById("detailBackBtn").addEventListener("click", () => {
   currentMovie = null;
   showScreen(detailFromScreen);
+});
+document.getElementById("detailPrevBtn").addEventListener("click", () => {
+  if (detailIndex > 0) showDetail(detailList[detailIndex - 1], detailList, detailIndex - 1, true);
+});
+document.getElementById("detailNextBtn").addEventListener("click", () => {
+  if (detailIndex < detailList.length - 1) showDetail(detailList[detailIndex + 1], detailList, detailIndex + 1, true);
 });
 
 /* ── 모달 닫기 ─────────────────────────────── */
